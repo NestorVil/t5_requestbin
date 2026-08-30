@@ -28,24 +28,27 @@ app.get("/api/new-basket", async (req, res) => {
   res.json(name);
 });
 
-const getBasket = async (req, res) => {
-  const { name } = req.params;
+const getBasket = async (name) => {
   const basket = await pool.query("SELECT * FROM baskets WHERE name = $1", [
     name,
   ]);
-  res.json(basket.rows[0]);
+  return basket.rows[0];
 };
 
-app.get("/api/baskets/:name", getBasket);
+app.get("/api/baskets/:name", async (req, res) => {
+  const name = req.params.name;
+  res.json(getBasket(name));
+});
+
 app.post("/api/baskets/:name", async (req, res) => {
   try {
-    const basket = getBasket();
+    const name = req.params.name;
+    const basket = await getBasket(name);
     if (basket) {
-      throw new Error("Basket already exists");
+      return res.status(409).json({ message: "Basket already exists" });
     }
 
     const sessionId = req.body.sessionId;
-    const name = req.params.name;
     const totalCount = 0;
     const newBasket = await pool.query(
       "INSERT INTO baskets (session_id, total_count, name) VALUES($1, $2, $3) RETURNING *",
