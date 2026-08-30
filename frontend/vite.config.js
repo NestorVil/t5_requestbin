@@ -11,6 +11,6 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
-    allowedHosts: ["lyricist-surface-predict.ngrok-free.dev", "localhost"],
+    allowedHosts: ["localhost"],
   },
 });

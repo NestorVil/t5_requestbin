@@ -62,7 +62,46 @@ app.post("/api/baskets/:name", async (req, res) => {
 // app.delete("/api/baskets/:name", (req, res) => {});
 
 // Requests
-// app.get("/api/baskets/:name/requests", (req, res) => {});
+app.post("/:name", async (req, res) => {
+  const { name } = req.params;
+
+  const basket = await getBasket(name);
+
+  if (!basket) {
+    return res.status(404).json({
+      message: "Basket not found",
+    });
+  }
+
+  await pool.query(
+    `INSERT INTO http_requests (basket_id, method, headers, body, received_at)
+     VALUES ($1, $2, $3, $4, $5) 
+     RETURNING *`,
+    [
+      basket.id,
+      req.method,
+      JSON.stringify(req.headers),
+      JSON.stringify(req.body),
+      new Date(Date.now()),
+    ]
+  );
+
+  res.sendStatus(200);
+});
+
+app.get("/api/baskets/:name/requests", async (req, res) => {
+  const { name } = req.params;
+  const request = await pool.query(
+    `SELECT *
+     FROM baskets 
+     JOIN http_requests 
+     ON baskets.id = http_requests.basket_id
+     WHERE baskets.name = $1;
+    `,
+    [name]
+  );
+  res.json(request.rows);
+});
 // app.delete("/api/baskets/:name/requests");
 // app.delete("/api/baskets/:name/requests/:id", (req, res) => {});
 
