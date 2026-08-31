@@ -1,41 +1,179 @@
 import { useCallback, useEffect, useState } from 'react';
+import { loadBins, addBin, removeBin } from './bins.js';
 
-const BIN_KEY = 'requestbin.binId';
 const POLL_MS = 2000;
 
+// ---------------------------------------------------------------------------
+// tiny hash router: #/ -> index, #/b/<binId> -> one bin
+// ---------------------------------------------------------------------------
+function parseHash() {
+  const m = window.location.hash.match(/^#\/b\/(.+)$/);
+  return m ? { name: 'bin', binId: decodeURIComponent(m[1]) } : { name: 'index' };
+}
+
+function useHashRoute() {
+  const [route, setRoute] = useState(parseHash);
+  useEffect(() => {
+    const onChange = () => setRoute(parseHash());
+    window.addEventListener('hashchange', onChange);
+    return () => window.removeEventListener('hashchange', onChange);
+  }, []);
+  return route;
+}
+
+const goIndex = () => {
+  window.location.hash = '#/';
+};
+const goBin = (binId) => {
+  window.location.hash = `#/b/${encodeURIComponent(binId)}`;
+};
+
+// ---------------------------------------------------------------------------
+
 export default function App() {
-  const [binId, setBinId] = useState(() => localStorage.getItem(BIN_KEY) || '');
+  const route = useHashRoute();
+
+  return (
+    <>
+      <header className="app">
+        <h1 className="crumb" onClick={goIndex}>Request Bin</h1>
+        {route.name === 'bin' && (
+          <span className="muted">
+            / <code>{route.binId}</code>
+          </span>
+        )}
+      </header>
+      <p className="muted">Scaffold stage &mdash; in-memory backend, bins listed from localStorage.</p>
+
+      {route.name === 'bin' ? (
+        <BinView key={route.binId} binId={route.binId} />
+      ) : (
+        <BinIndex />
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function BinIndex() {
+  const [bins, setBins] = useState(loadBins);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [confirmId, setConfirmId] = useState(null);
+
+  const createBin = useCallback(async () => {
+    setError('');
+    setBusy(true);
+    try {
+      const res = await fetch('/api/bins', { method: 'POST' });
+      if (!res.ok) throw new Error(`create failed (${res.status})`);
+      const bin = await res.json();
+      setBins(addBin({ binId: bin.binId, createdAt: bin.createdAt }));
+      goBin(bin.binId);
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const deleteBin = useCallback(async (binId) => {
+    try {
+      await fetch(`/api/bins/${binId}`, { method: 'DELETE' });
+    } catch {
+      /* server may be down / bin already gone - still drop it locally */
+    }
+    setBins(removeBin(binId));
+    setConfirmId(null);
+  }, []);
+
+  return (
+    <>
+      <div className="row">
+        <button onClick={createBin} disabled={busy}>
+          {busy ? 'Creating…' : 'Create a bin'}
+        </button>
+        <span className="muted">{bins.length} bin{bins.length === 1 ? '' : 's'}</span>
+      </div>
+
+      {error && (
+        <p style={{ color: '#b00' }}>
+          {error} <button onClick={() => setError('')}>dismiss</button>
+        </p>
+      )}
+
+      {bins.length === 0 ? (
+        <p className="muted">No bins yet. Create one to get an endpoint.</p>
+      ) : (
+        <div className="bin-list">
+          {bins.map((b) => (
+            <div className="bin-row" key={b.binId}>
+              <div className="grow">
+                <code className="crumb" onClick={() => goBin(b.binId)}>{b.binId}</code>
+                <div className="sub">
+                  {b.createdAt ? new Date(b.createdAt).toLocaleString() : 'unknown date'}
+                </div>
+              </div>
+              <button onClick={() => goBin(b.binId)}>Open</button>
+              {confirmId === b.binId ? (
+                <>
+                  <button className="danger" onClick={() => deleteBin(b.binId)}>
+                    Confirm
+                  </button>
+                  <button onClick={() => setConfirmId(null)}>Cancel</button>
+                </>
+              ) : (
+                <button className="danger" onClick={() => setConfirmId(b.binId)}>
+                  Delete
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function BinView({ binId }) {
+  const [status, setStatus] = useState('loading'); // loading | ok | missing
   const [requests, setRequests] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const ingestUrl = binId ? `${window.location.origin}/b/${binId}` : '';
+  const ingestUrl = `${window.location.origin}/b/${binId}`;
 
-  const createBin = useCallback(async () => {
-    setError('');
-    try {
-      const res = await fetch('/api/bins', { method: 'POST' });
-      if (!res.ok) throw new Error(`create failed (${res.status})`);
-      const bin = await res.json();
-      localStorage.setItem(BIN_KEY, bin.binId);
-      setBinId(bin.binId);
-      setRequests([]);
-      setSelectedId(null);
-    } catch (e) {
-      setError(String(e.message || e));
-    }
-  }, []);
+  // existence check + local registration (covers opening via a shared link)
+  useEffect(() => {
+    let cancelled = false;
+    setStatus('loading');
+    fetch(`/api/bins/${binId}`)
+      .then(async (res) => {
+        if (cancelled) return;
+        if (res.status === 404) {
+          setStatus('missing');
+          return;
+        }
+        if (!res.ok) throw new Error(`load failed (${res.status})`);
+        const bin = await res.json();
+        setStatus('ok');
+        addBin({ binId, createdAt: bin.createdAt });
+      })
+      .catch((e) => !cancelled && setError(String(e.message || e)));
+    return () => {
+      cancelled = true;
+    };
+  }, [binId]);
 
   const loadRequests = useCallback(async () => {
-    if (!binId) return;
     try {
       const res = await fetch(`/api/bins/${binId}/requests`);
       if (res.status === 404) {
-        // bin no longer exists (e.g. backend restarted) - reset
-        localStorage.removeItem(BIN_KEY);
-        setBinId('');
-        setRequests([]);
+        setStatus('missing');
         return;
       }
       if (!res.ok) throw new Error(`load failed (${res.status})`);
@@ -47,14 +185,13 @@ export default function App() {
   }, [binId]);
 
   useEffect(() => {
-    if (!binId) return;
+    if (status !== 'ok') return;
     loadRequests();
     const t = setInterval(loadRequests, POLL_MS);
     return () => clearInterval(t);
-  }, [binId, loadRequests]);
+  }, [status, loadRequests]);
 
   const sendTestRequest = useCallback(async () => {
-    if (!binId) return;
     await fetch(`/b/${binId}/hello?demo=1`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -64,7 +201,6 @@ export default function App() {
   }, [binId, loadRequests]);
 
   const clearRequests = useCallback(async () => {
-    if (!binId) return;
     await fetch(`/api/bins/${binId}/requests`, { method: 'DELETE' });
     setRequests([]);
     setSelectedId(null);
@@ -80,66 +216,74 @@ export default function App() {
     }
   }, [ingestUrl]);
 
+  if (status === 'loading') return <p className="muted">Loading…</p>;
+
+  if (status === 'missing') {
+    return (
+      <div className="banner">
+        <p>
+          Bin <code>{binId}</code> doesn&rsquo;t exist on the server. The backend
+          keeps bins in memory for now, so a restart clears them.
+        </p>
+        <div className="row">
+          <button onClick={() => { removeBin(binId); goIndex(); }}>
+            Remove from my list
+          </button>
+          <button onClick={goIndex}>Back to all bins</button>
+        </div>
+      </div>
+    );
+  }
+
   const selected = requests.find((r) => r.id === selectedId) || null;
 
   return (
     <>
-      <h1>Request Bin</h1>
-      <p className="muted">
-        Scaffold stage &mdash; in-memory only, polling every {POLL_MS / 1000}s.
-      </p>
-
       {error && (
         <p style={{ color: '#b00' }}>
           {error} <button onClick={() => setError('')}>dismiss</button>
         </p>
       )}
 
-      {!binId ? (
-        <button onClick={createBin}>Create a bin</button>
-      ) : (
-        <>
-          <div className="row">
-            <span>Ingest endpoint:</span>
-            <code className="endpoint">{ingestUrl}</code>
-            <button onClick={copyEndpoint}>{copied ? 'Copied!' : 'Copy'}</button>
-            <button onClick={sendTestRequest}>Send test request</button>
-            <button onClick={clearRequests}>Clear</button>
-            <button onClick={createBin}>New bin</button>
-          </div>
+      <div className="row">
+        <button onClick={goIndex}>&larr; All bins</button>
+        <span>Ingest endpoint:</span>
+        <code className="endpoint">{ingestUrl}</code>
+        <button onClick={copyEndpoint}>{copied ? 'Copied!' : 'Copy'}</button>
+        <button onClick={sendTestRequest}>Send test request</button>
+        <button onClick={clearRequests}>Clear</button>
+      </div>
 
-          <div className="layout">
-            <div className="list">
-              {requests.length === 0 && (
-                <div className="list-item muted">No requests yet.</div>
-              )}
-              {requests.map((r) => (
-                <div
-                  key={r.id}
-                  className={`list-item${r.id === selectedId ? ' active' : ''}`}
-                  onClick={() => setSelectedId(r.id)}
-                >
-                  <div className="row">
-                    <span className="method">{r.method}</span>
-                    <span>{r.path}</span>
-                  </div>
-                  <div className="muted" style={{ fontSize: '0.75rem' }}>
-                    {new Date(r.receivedAt).toLocaleTimeString()}
-                  </div>
-                </div>
-              ))}
+      <div className="layout">
+        <div className="list">
+          {requests.length === 0 && (
+            <div className="list-item muted">No requests yet.</div>
+          )}
+          {requests.map((r) => (
+            <div
+              key={r.id}
+              className={`list-item${r.id === selectedId ? ' active' : ''}`}
+              onClick={() => setSelectedId(r.id)}
+            >
+              <div className="row">
+                <span className="method">{r.method}</span>
+                <span>{r.path}</span>
+              </div>
+              <div className="muted" style={{ fontSize: '0.75rem' }}>
+                {new Date(r.receivedAt).toLocaleTimeString()}
+              </div>
             </div>
+          ))}
+        </div>
 
-            <div className="detail">
-              {!selected ? (
-                <span className="muted">Select a request to inspect it.</span>
-              ) : (
-                <RequestDetail request={selected} />
-              )}
-            </div>
-          </div>
-        </>
-      )}
+        <div className="detail">
+          {!selected ? (
+            <span className="muted">Select a request to inspect it.</span>
+          ) : (
+            <RequestDetail request={selected} />
+          )}
+        </div>
+      </div>
     </>
   );
 }

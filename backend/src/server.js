@@ -4,6 +4,7 @@ import cors from 'cors';
 import {
   createBin,
   getBin,
+  deleteBin,
   addRequest,
   listRequests,
   getRequest,
@@ -49,6 +50,12 @@ api.get('/bins/:binId', (req, res) => {
   const bin = getBin(req.params.binId);
   if (!bin) return res.status(404).json({ error: 'bin not found' });
   res.json(serializeBin(bin));
+});
+
+api.delete('/bins/:binId', (req, res) => {
+  const ok = deleteBin(req.params.binId);
+  if (!ok) return res.status(404).json({ error: 'bin not found' });
+  res.status(204).end();
 });
 
 api.get('/bins/:binId/requests', (req, res) => {

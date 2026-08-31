@@ -24,6 +24,10 @@ export function getBin(binId) {
   return bins.get(binId) ?? null;
 }
 
+export function deleteBin(binId) {
+  return bins.delete(binId);
+}
+
 export function addRequest(binId, data) {
   const bin = bins.get(binId);
   if (!bin) return null;
