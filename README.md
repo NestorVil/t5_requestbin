@@ -3,26 +3,30 @@
 A "request bin" tool: create a unique bin, point any HTTP client / webhook at its
 ingest URL, and inspect every request (method, path, headers, body) in a web UI.
 
-> Scaffold stage — **no databases yet**. Requests are held in memory in the
-> backend process and are lost on restart. Postgres + MongoDB come later.
+Storage: **Postgres** holds bins + request metadata, **MongoDB** holds the
+untouched request payload (so nothing is lost if parsing changes).
 
 ## Layout
 
 ```
-backend/    Express API + request-capture endpoint (in-memory store for now)
-frontend/   React + Vite single-page UI
-ngrok.yml   ngrok tunnel config (git-ignored; copy from ngrok.example.yml)
+backend/            Express API + request-capture endpoint
+  src/db/           pg + mongo connection helpers
+  migrations/       plain .sql files, applied by src/migrate.js
+frontend/           React + Vite single-page UI
+docker-compose.yml  local Postgres + MongoDB
+ngrok.example.yml   ngrok tunnel config template
 ```
 
 ## Prerequisites
 
 - Node 20+ (`node --version`)
-- ngrok account + CLI (see "Testing over ngrok" below)
+- Docker Desktop (for the databases)
+- ngrok account + CLI (only for external webhook testing)
 
 ## Install
 
 ```bash
-npm install            # root: installs the dev runner (concurrently)
+npm install            # root: dev runner (concurrently)
 npm install --prefix backend
 npm install --prefix frontend
 ```
@@ -30,8 +34,12 @@ npm install --prefix frontend
 ## Run (local)
 
 ```bash
-npm run dev            # starts backend :3001 and frontend :5173 together
+npm run db:up          # start Postgres + Mongo (docker compose up -d)
+npm run migrate        # create/upgrade the Postgres schema
+npm run dev            # backend :3001 and frontend :5173 together
 ```
+
+`npm run db:down` stops the databases (data is kept in named volumes).
 
 - UI:            http://localhost:5173
 - API health:    http://localhost:3001/health
@@ -48,6 +56,17 @@ Run them separately if you prefer:
 npm run dev --prefix backend
 npm run dev --prefix frontend
 ```
+
+### Databases
+
+`docker-compose.yml` runs `postgres:16` on host port **5433** (to dodge a local
+Postgres on 5432) and `mongo:7` on 27017, creds `requestbin:requestbin`.
+Connection strings live in `backend/.env` (copy from `backend/.env.example`);
+the defaults already match Compose, so `.env` is optional for local dev.
+
+- `npm run migrate` — apply pending `backend/migrations/*.sql`
+- Inspect: `psql postgres://requestbin:requestbin@localhost:5433/requestbin`
+- Reset everything: `docker compose down -v` (drops the volumes), then `db:up` + `migrate`
 
 ## Testing over ngrok
 

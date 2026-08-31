@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 
+import { pool, closePg } from './db/pg.js';
+import { connectMongo, closeMongo } from './db/mongo.js';
 import {
   createBin,
   getBin,
@@ -9,6 +11,7 @@ import {
   listRequests,
   getRequest,
   clearRequests,
+  BinExistsError,
 } from './store.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -17,6 +20,9 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS ?? 'http://localhost:5173')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
+
+// wrap an async route handler so rejections reach the error middleware
+const h = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 const app = express();
 app.disable('x-powered-by');
@@ -45,55 +51,77 @@ const BIN_ID_RE = /^[A-Za-z0-9_-]{3,64}$/;
 // paths the backend serves itself - can't be used as bin names
 const RESERVED = new Set(['api', 'health', 'b', 'bins', 'favicon.ico', 'robots.txt']);
 
-api.post('/bins', (req, res) => {
-  const binId = typeof req.body?.binId === 'string' ? req.body.binId.trim() : '';
-  if (!binId) {
-    return res.status(400).json({ error: 'binId is required' });
-  }
-  if (!BIN_ID_RE.test(binId)) {
-    return res.status(400).json({
-      error: 'binId must be 3-64 characters: letters, numbers, hyphen, underscore',
-    });
-  }
-  if (RESERVED.has(binId.toLowerCase())) {
-    return res.status(400).json({ error: 'that name is reserved, pick another' });
-  }
-  if (getBin(binId)) {
-    return res.status(409).json({ error: 'that name is already taken' });
-  }
-  const bin = createBin(binId);
-  res.status(201).json(serializeBin(bin));
-});
+api.post(
+  '/bins',
+  h(async (req, res) => {
+    const binId = typeof req.body?.binId === 'string' ? req.body.binId.trim() : '';
+    if (!binId) {
+      return res.status(400).json({ error: 'binId is required' });
+    }
+    if (!BIN_ID_RE.test(binId)) {
+      return res.status(400).json({
+        error: 'binId must be 3-64 characters: letters, numbers, hyphen, underscore',
+      });
+    }
+    if (RESERVED.has(binId.toLowerCase())) {
+      return res.status(400).json({ error: 'that name is reserved, pick another' });
+    }
+    try {
+      const bin = await createBin(binId);
+      res.status(201).json(bin);
+    } catch (err) {
+      if (err instanceof BinExistsError) {
+        return res.status(409).json({ error: 'that name is already taken' });
+      }
+      throw err;
+    }
+  })
+);
 
-api.get('/bins/:binId', (req, res) => {
-  const bin = getBin(req.params.binId);
-  if (!bin) return res.status(404).json({ error: 'bin not found' });
-  res.json(serializeBin(bin));
-});
+api.get(
+  '/bins/:binId',
+  h(async (req, res) => {
+    const bin = await getBin(req.params.binId);
+    if (!bin) return res.status(404).json({ error: 'bin not found' });
+    res.json(bin);
+  })
+);
 
-api.delete('/bins/:binId', (req, res) => {
-  const ok = deleteBin(req.params.binId);
-  if (!ok) return res.status(404).json({ error: 'bin not found' });
-  res.status(204).end();
-});
+api.delete(
+  '/bins/:binId',
+  h(async (req, res) => {
+    const ok = await deleteBin(req.params.binId);
+    if (!ok) return res.status(404).json({ error: 'bin not found' });
+    res.status(204).end();
+  })
+);
 
-api.get('/bins/:binId/requests', (req, res) => {
-  const requests = listRequests(req.params.binId);
-  if (requests === null) return res.status(404).json({ error: 'bin not found' });
-  res.json({ requests });
-});
+api.get(
+  '/bins/:binId/requests',
+  h(async (req, res) => {
+    const requests = await listRequests(req.params.binId);
+    if (requests === null) return res.status(404).json({ error: 'bin not found' });
+    res.json({ requests });
+  })
+);
 
-api.get('/bins/:binId/requests/:requestId', (req, res) => {
-  const request = getRequest(req.params.binId, req.params.requestId);
-  if (!request) return res.status(404).json({ error: 'request not found' });
-  res.json(request);
-});
+api.get(
+  '/bins/:binId/requests/:requestId',
+  h(async (req, res) => {
+    const request = await getRequest(req.params.binId, req.params.requestId);
+    if (!request) return res.status(404).json({ error: 'request not found' });
+    res.json(request);
+  })
+);
 
-api.delete('/bins/:binId/requests', (req, res) => {
-  const ok = clearRequests(req.params.binId);
-  if (!ok) return res.status(404).json({ error: 'bin not found' });
-  res.status(204).end();
-});
+api.delete(
+  '/bins/:binId/requests',
+  h(async (req, res) => {
+    const ok = await clearRequests(req.params.binId);
+    if (!ok) return res.status(404).json({ error: 'bin not found' });
+    res.status(204).end();
+  })
+);
 
 app.use('/api', api);
 
@@ -109,24 +137,20 @@ app.all(
   ['/:binId', '/:binId/*'],
   cors(),
   express.raw({ type: () => true, limit: MAX_BODY_SIZE }),
-  (req, res) => {
+  h(async (req, res) => {
     const { binId } = req.params;
     if (RESERVED.has(binId.toLowerCase())) {
       return res.status(404).json({ error: 'not found' });
     }
 
-    const bin = getBin(binId);
-    if (!bin) return res.status(404).json({ error: 'bin not found' });
-
-    const rawBody = Buffer.isBuffer(req.body) && req.body.length
-      ? req.body.toString('utf8')
-      : '';
-
+    const rawBody =
+      Buffer.isBuffer(req.body) && req.body.length ? req.body.toString('utf8') : '';
     const subPath = req.params[0] ? `/${req.params[0]}` : '';
 
-    const request = addRequest(binId, {
+    const request = await addRequest(binId, {
       method: req.method,
       path: subPath || '/',
+      url: req.originalUrl,
       query: req.query,
       headers: req.headers,
       contentType: req.headers['content-type'] ?? null,
@@ -135,21 +159,40 @@ app.all(
       remoteIp: req.ip,
     });
 
+    if (!request) return res.status(404).json({ error: 'bin not found' });
     res.status(200).json({ ok: true, binId, requestId: request.id });
-  }
+  })
 );
 
 app.use((_req, res) => res.status(404).json({ error: 'not found' }));
 
-app.listen(PORT, () => {
-  console.log(`[requestbin] backend listening on http://localhost:${PORT}`);
-  console.log(`[requestbin] CORS origins: ${CORS_ORIGINS.join(', ')}`);
+// error middleware - last
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  if (res.headersSent) return;
+  res.status(500).json({ error: 'internal error' });
 });
 
-function serializeBin(bin) {
-  return {
-    binId: bin.binId,
-    createdAt: bin.createdAt,
-    requestCount: bin.requests.length,
+async function start() {
+  await connectMongo();
+  await pool.query('SELECT 1'); // fail fast if Postgres is unreachable
+  const server = app.listen(PORT, () => {
+    console.log(`[requestbin] backend listening on http://localhost:${PORT}`);
+    console.log(`[requestbin] CORS origins: ${CORS_ORIGINS.join(', ')}`);
+  });
+
+  const shutdown = async (signal) => {
+    console.log(`\n[requestbin] ${signal} - shutting down`);
+    server.close();
+    await Promise.allSettled([closePg(), closeMongo()]);
+    process.exit(0);
   };
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
+
+start().catch((err) => {
+  console.error('[requestbin] failed to start:', err.message);
+  process.exit(1);
+});

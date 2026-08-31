@@ -50,7 +50,7 @@ export default function App() {
           </span>
         )}
       </header>
-      <p className="muted">Scaffold stage &mdash; in-memory backend, bins listed from localStorage.</p>
+      <p className="muted">Postgres + MongoDB backend. Your bin list is kept in localStorage.</p>
 
       {route.name === 'bin' ? (
         <BinView key={route.binId} binId={route.binId} />
@@ -182,6 +182,7 @@ function BinView({ binId }) {
   const [status, setStatus] = useState('loading'); // loading | ok | missing
   const [requests, setRequests] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -231,6 +232,23 @@ function BinView({ binId }) {
     return () => clearInterval(t);
   }, [status, loadRequests]);
 
+  // full detail (incl. raw body) is fetched on demand when a request is selected
+  useEffect(() => {
+    if (!selectedId) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setDetail(null);
+    fetch(`/api/bins/${binId}/requests/${selectedId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => !cancelled && setDetail(d))
+      .catch(() => !cancelled && setDetail(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, binId]);
+
   const sendTestRequest = useCallback(async () => {
     await fetch(`${INGEST_BASE}/${binId}/hello?demo=1`, {
       method: 'POST',
@@ -244,6 +262,7 @@ function BinView({ binId }) {
     await fetch(`/api/bins/${binId}/requests`, { method: 'DELETE' });
     setRequests([]);
     setSelectedId(null);
+    setDetail(null);
   }, [binId]);
 
   const recreate = useCallback(async () => {
@@ -279,8 +298,8 @@ function BinView({ binId }) {
     return (
       <div className="banner">
         <p>
-          Bin <code>{binId}</code> doesn&rsquo;t exist on the server. The backend
-          keeps bins in memory for now, so a restart clears them.
+          Bin <code>{binId}</code> doesn&rsquo;t exist on the server &mdash; it was
+          deleted, or never created here.
         </p>
         {error && <p style={{ color: '#b00' }}>{error}</p>}
         <div className="row">
@@ -293,8 +312,6 @@ function BinView({ binId }) {
       </div>
     );
   }
-
-  const selected = requests.find((r) => r.id === selectedId) || null;
 
   return (
     <>
@@ -336,10 +353,12 @@ function BinView({ binId }) {
         </div>
 
         <div className="detail">
-          {!selected ? (
+          {!selectedId ? (
             <span className="muted">Select a request to inspect it.</span>
+          ) : !detail ? (
+            <span className="muted">Loading…</span>
           ) : (
-            <RequestDetail request={selected} />
+            <RequestDetail request={detail} />
           )}
         </div>
       </div>
