@@ -16,7 +16,7 @@ docker-compose.yml   local Postgres + MongoDB
 ## Prerequisites
 
 - Node 20.12+
-- Docker Desktop (running)
+- Docker Desktop (installed — `npm run db:up` starts it for you on macOS)
 - ngrok 3.x — only for external webhooks / demos
 
 ## Setup
@@ -25,10 +25,12 @@ docker-compose.yml   local Postgres + MongoDB
 git clone https://github.com/NestorVil/t5_requestbin.git
 cd t5_requestbin
 npm run install:all      # root + backend + frontend deps
-npm run db:up            # start Postgres (:5433) + Mongo (:27017) in Docker
+npm run db:up            # launches Docker if needed, then Postgres (:5433) + Mongo (:27017)
 npm run migrate          # apply backend/migrations/*.sql
 npm run dev              # backend :3001 + frontend :5173
 ```
+
+On Linux/Windows `db:up` won't auto-launch Docker — start the daemon first, then rerun.
 
 Open http://localhost:5173, create a bin, and send it a request:
 
