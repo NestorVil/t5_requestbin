@@ -26,8 +26,7 @@ function HomePage() {
     e.preventDefault();
 
     try {
-      const data = { session_id: 3, name: basketName, total_count: 0 };
-      await axios.post(`/api/baskets/${basketName}`, data);
+      await axios.post(`/api/baskets/${basketName}`);
       navigate(`/web/${basketName}`);
     } catch (error) {
       alert(error.response.data.message);

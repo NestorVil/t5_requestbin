@@ -1,11 +1,12 @@
 const express = require("express");
 const session = require("express-session");
 const cors = require("cors");
+const pgSession = require("connect-pg-simple")(session);
 const { generateBasketName } = require("./utils");
 const app = express();
 const PORT = 3000;
 
-// Move this later
+// Move this later if needed
 const Pool = require("pg").Pool;
 const pool = new Pool({
   user: "postgres",
@@ -19,6 +20,10 @@ app.use(cors());
 app.use(express.json());
 app.use(
   session({
+    store: new pgSession({
+      pool,
+      tableName: "sessions",
+    }),
     secret: process.env.SECRET,
     resave: false,
     saveUninitialized: true,
@@ -71,11 +76,12 @@ app.post("/api/baskets/:name", async (req, res) => {
     }
 
     const sessionID = req.sessionID;
-    const idInDB = await pool.query("SELECT * FROM sessions WHERE id = $1", [
+    const idInDB = await pool.query("SELECT * FROM sessions WHERE sid = $1", [
       sessionID,
     ]);
+
     if (!idInDB.rows[0]) {
-      await pool.query("INSERT INTO sessions (id) VALUES ($1)", [sessionID]);
+      await pool.query("INSERT INTO sessions (sid) VALUES ($1)", [sessionID]);
     }
 
     const newBasket = await pool.query(

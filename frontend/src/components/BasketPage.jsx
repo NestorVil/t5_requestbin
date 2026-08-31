@@ -4,7 +4,7 @@ import axios from "axios";
 
 function BasketPage() {
   const { basketName } = useParams();
-  const webhookUrl = `http://localhost:3000/${basketName}`;
+  const webhookUrl = `<ngrok domain name>/${basketName}`;
   const [requests, setRequests] = useState([]);
 
   useEffect(() => {
@@ -26,6 +26,7 @@ function BasketPage() {
   return (
     <div className="container">
       <h1>Basket: {basketName}</h1>
+      <div>Requests: {requests.length}</div>
       <p>
         Send webhook requests to: {webhookUrl}
         <button onClick={copyToClipboard}>Click to copy</button>
@@ -36,7 +37,6 @@ function BasketPage() {
           const dateTime = new Date(request.received_at);
           const time = dateTime.toLocaleTimeString("en-US");
           const date = dateTime.toLocaleDateString("en-US");
-          console.log(dateTime);
           return (
             <div className="row mb-5" key={request.id}>
               <div className="col-md-2">
@@ -87,7 +87,7 @@ function BasketPage() {
                         aria-expanded="false"
                         aria-controls={`collapseTwo${request.id}`}
                       >
-                        Accordion Item #2
+                        Body
                       </button>
                     </h2>
                     <div

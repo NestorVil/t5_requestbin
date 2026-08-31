@@ -4,12 +4,14 @@ CREATE DATABASE request_basket;
 \connect request_basket
 
 CREATE TABLE sessions (
-  id VARCHAR PRIMARY KEY
+  sid VARCHAR PRIMARY KEY,
+  sess JSON NOT NULL,
+  expire TIMESTAMP(6) NOT NULL 
 );
 
 CREATE TABLE baskets (
   id SERIAL PRIMARY KEY,
-  session_id VARCHAR REFERENCES sessions(id) ON DELETE CASCADE,
+  session_id VARCHAR REFERENCES sessions(sid) ON DELETE CASCADE,
   total_count INT DEFAULT 0,
   name VARCHAR(20) UNIQUE NOT NULL
 );
