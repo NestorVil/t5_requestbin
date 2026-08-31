@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { io } from "socket.io-client";
 import axios from "axios";
+
+const socket = io("http://localhost:3000");
 
 function BasketPage() {
   const { basketName } = useParams();
@@ -17,6 +20,16 @@ function BasketPage() {
       }
     };
     getRequests();
+
+    socket.on("webhook-update", (newRequest) => {
+      console.log("🔥 WebSocket event received:", newRequest);
+
+      setRequests((currentRequests) => [...currentRequests, newRequest]);
+    });
+
+    return () => {
+      socket.off("webhook-update");
+    };
   }, [basketName]);
 
   const copyToClipboard = async () => {

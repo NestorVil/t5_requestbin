@@ -1,9 +1,14 @@
 const express = require("express");
 const session = require("express-session");
 const cors = require("cors");
+const http = require("http");
 const pgSession = require("connect-pg-simple")(session);
 const { generateBasketName } = require("./utils");
+const { Server } = require("socket.io");
+const { Socket } = require("engine.io");
+
 const app = express();
+const server = http.createServer(app);
 const PORT = 3000;
 
 // Move this later if needed
@@ -34,6 +39,20 @@ app.use(
     },
   })
 );
+
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173",
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("Frontend connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("Frontend disconnected");
+  });
+});
 
 // Baskets
 app.get("/api/new-basket", async (req, res) => {
@@ -107,7 +126,7 @@ app.post("/:name", async (req, res) => {
     });
   }
 
-  await pool.query(
+  const result = await pool.query(
     `INSERT INTO http_requests (basket_id, method, headers, body)
      VALUES ($1, $2, $3, $4) 
      RETURNING *`,
@@ -119,7 +138,12 @@ app.post("/:name", async (req, res) => {
     ]
   );
 
-  res.sendStatus(200);
+  const newRequest = result.rows[0];
+  io.emit("webhook-update", newRequest);
+
+  res.status(200).json({
+    message: "Webhook received",
+  });
 });
 
 app.get("/api/baskets/:name/requests", async (req, res) => {
@@ -138,6 +162,6 @@ app.get("/api/baskets/:name/requests", async (req, res) => {
 // app.delete("/api/baskets/:name/requests");
 // app.delete("/api/baskets/:name/requests/:id", (req, res) => {});
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
