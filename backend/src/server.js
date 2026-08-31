@@ -3,6 +3,7 @@ import cors from 'cors';
 
 import { pool, closePg } from './db/pg.js';
 import { connectMongo, closeMongo } from './db/mongo.js';
+import { attachWs, broadcast } from './ws.js';
 import {
   createBin,
   getBin,
@@ -92,6 +93,7 @@ api.delete(
   h(async (req, res) => {
     const ok = await deleteBin(req.params.binId);
     if (!ok) return res.status(404).json({ error: 'bin not found' });
+    broadcast(req.params.binId, { type: 'bin:deleted' });
     res.status(204).end();
   })
 );
@@ -119,6 +121,7 @@ api.delete(
   h(async (req, res) => {
     const ok = await clearRequests(req.params.binId);
     if (!ok) return res.status(404).json({ error: 'bin not found' });
+    broadcast(req.params.binId, { type: 'requests:cleared' });
     res.status(204).end();
   })
 );
@@ -160,6 +163,11 @@ app.all(
     });
 
     if (!request) return res.status(404).json({ error: 'bin not found' });
+
+    // push a body-less summary to everyone watching this bin
+    const { body, ...summary } = request;
+    broadcast(binId, { type: 'request:new', request: summary });
+
     res.status(200).json({ ok: true, binId, requestId: request.id });
   })
 );
@@ -179,11 +187,14 @@ async function start() {
   await pool.query('SELECT 1'); // fail fast if Postgres is unreachable
   const server = app.listen(PORT, () => {
     console.log(`[requestbin] backend listening on http://localhost:${PORT}`);
+    console.log(`[requestbin] websocket on ws://localhost:${PORT}/ws`);
     console.log(`[requestbin] CORS origins: ${CORS_ORIGINS.join(', ')}`);
   });
+  const wss = attachWs(server);
 
   const shutdown = async (signal) => {
     console.log(`\n[requestbin] ${signal} - shutting down`);
+    wss.close();
     server.close();
     await Promise.allSettled([closePg(), closeMongo()]);
     process.exit(0);

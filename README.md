@@ -1,16 +1,19 @@
 # Request Bin (Team 5)
 
 A "request bin" tool: create a unique bin, point any HTTP client / webhook at its
-ingest URL, and inspect every request (method, path, headers, body) in a web UI.
+ingest URL, and watch every request (method, path, headers, body) stream into a
+web UI in real time.
 
 Storage: **Postgres** holds bins + request metadata, **MongoDB** holds the
-untouched request payload (so nothing is lost if parsing changes).
+untouched request payload (so nothing is lost if parsing changes). New requests
+are pushed to the UI over a **WebSocket** (`/ws?bin=<binId>`); no polling.
 
 ## Layout
 
 ```
 backend/            Express API + request-capture endpoint
   src/db/           pg + mongo connection helpers
+  src/ws.js         WebSocket fan-out, one room per bin
   migrations/       plain .sql files, applied by src/migrate.js
 frontend/           React + Vite single-page UI
 docker-compose.yml  local Postgres + MongoDB

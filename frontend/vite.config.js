@@ -9,10 +9,11 @@ export default defineConfig({
     host: true,          // listen on 0.0.0.0 so ngrok / LAN can reach it
     allowedHosts: true,  // accept the ngrok domain as a Host header
     proxy: {
-      // UI calls /api/... on its own origin; forward to the backend.
-      // Capture requests go straight to the backend origin (see VITE_INGEST_BASE),
-      // not through this proxy.
+      // UI calls /api/... and the /ws socket on its own origin; forward both to
+      // the backend. Capture requests go straight to the backend origin
+      // (see VITE_INGEST_BASE), not through this proxy.
       '/api': { target: BACKEND, changeOrigin: true },
+      '/ws': { target: BACKEND, changeOrigin: true, ws: true },
     },
   },
 });

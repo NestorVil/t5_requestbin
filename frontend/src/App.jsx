@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { loadBins, addBin, removeBin } from './bins.js';
 
-const POLL_MS = 2000;
-
 // Where captured requests are sent. The backend serves them at its own origin's
 // root (e.g. http://localhost:3001/<bin-name>). Override for ngrok/prod with
 // VITE_INGEST_BASE, e.g. VITE_INGEST_BASE=https://abc123.ngrok-free.app
@@ -225,12 +223,69 @@ function BinView({ binId }) {
     }
   }, [binId]);
 
+  // live updates over WebSocket (replaces polling)
   useEffect(() => {
     if (status !== 'ok') return;
-    loadRequests();
-    const t = setInterval(loadRequests, POLL_MS);
-    return () => clearInterval(t);
-  }, [status, loadRequests]);
+
+    let ws;
+    let reconnectTimer;
+    let stopped = false;
+    let backoff = 1000;
+
+    const connect = () => {
+      loadRequests(); // sync the current list on connect / reconnect
+
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(
+        `${proto}://${window.location.host}/ws?bin=${encodeURIComponent(binId)}`
+      );
+
+      ws.onopen = () => {
+        backoff = 1000;
+      };
+
+      ws.onmessage = (evt) => {
+        let msg;
+        try {
+          msg = JSON.parse(evt.data);
+        } catch {
+          return;
+        }
+        if (msg.type === 'request:new') {
+          setRequests((prev) =>
+            prev.some((r) => r.id === msg.request.id)
+              ? prev
+              : [msg.request, ...prev].slice(0, 100)
+          );
+        } else if (msg.type === 'requests:cleared') {
+          setRequests([]);
+          setSelectedId(null);
+          setDetail(null);
+        } else if (msg.type === 'bin:deleted') {
+          setStatus('missing');
+        }
+      };
+
+      ws.onclose = () => {
+        if (stopped) return;
+        reconnectTimer = setTimeout(connect, backoff);
+        backoff = Math.min(backoff * 2, 15000);
+      };
+
+      ws.onerror = () => ws.close();
+    };
+
+    connect();
+
+    return () => {
+      stopped = true;
+      clearTimeout(reconnectTimer);
+      if (ws) {
+        ws.onclose = null; // intentional close - don't reconnect
+        ws.close();
+      }
+    };
+  }, [status, binId, loadRequests]);
 
   // full detail (incl. raw body) is fetched on demand when a request is selected
   useEffect(() => {
