@@ -1,2 +1,0 @@
-asdfasdfsd
-console.log('Mine');
