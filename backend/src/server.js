@@ -164,11 +164,16 @@ app.all(
 
     if (!request) return res.status(404).json({ error: 'bin not found' });
 
-    // push a body-less summary to everyone watching this bin
-    const { body, ...summary } = request;
-    broadcast(binId, { type: 'request:new', request: summary });
-
+    // answer the sender as soon as the request is persisted
     res.status(200).json({ ok: true, binId, requestId: request.id });
+
+    // then notify watchers - best-effort, never affects the response
+    try {
+      const { body, ...summary } = request;
+      broadcast(binId, { type: 'request:new', request: summary });
+    } catch (err) {
+      console.error('[ws] broadcast failed', err);
+    }
   })
 );
 
