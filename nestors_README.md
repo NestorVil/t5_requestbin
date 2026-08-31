@@ -9,3 +9,9 @@ After creating a basket on rbasket.in, a modal opens up saying the basket was su
 I didnt set up a "services" or "communications" file in my frontend that makes all the API calls to the backend. In reality I think it wil be a call to get the info to display the list of baskets, and the glob of information per basket (await getHTTPRequests(basketSession) in the frontend and (SELECT * FROM basket_info. WHERE session_id = basketSession) or something like that). I think the hard part here is finding out what a websocket is (so when the backend changes aka a request gets added then the frontend somehow knows about it and updates)
 
 I didnt set up the display info for whats in each basket (the "Full Basket" in our ERD).Figured someone can do that once we divide up the work.
+
+Frontend Pictures (i just googled image sharing website if you guys have a not scary looking link tell me):
+https://ibb.co/k29jMMk9
+https://ibb.co/XZFcs4wG (when clicking on one of the links)
+
+I ran out of time so I mainly did the frontend. My backend is mostly empty but i set up the databases on my machine and added an .sql on creating a database and setting up the schema. We can compare how we did it.
