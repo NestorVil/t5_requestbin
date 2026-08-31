@@ -1,0 +1,23 @@
+# ngrok v3 config template.
+# Copy to ngrok.yml (git-ignored), then:  ngrok start --all --config ngrok.yml
+#
+# Your authtoken lives in ngrok's own config (set once with
+#   ngrok config add-authtoken <token>
+# ), so it does NOT belong in this file.
+#
+# One tunnel to the Vite dev server (5173) is enough: Vite proxies /api and
+# /b/... through to the backend on 3001, so the single public URL serves the
+# UI *and* accepts captured requests. The free plan allows one tunnel at a time.
+
+version: "3"
+
+tunnels:
+  app:
+    addr: 5173
+    proto: http
+
+  # Uncomment to expose the backend directly as well (needs a paid ngrok plan
+  # to run two tunnels at once).
+  # backend:
+  #   addr: 3001
+  #   proto: http
