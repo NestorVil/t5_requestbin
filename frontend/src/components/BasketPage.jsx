@@ -17,18 +17,26 @@ function BasketPage() {
       }
     };
     getRequests();
-  }, []);
+  }, [basketName]);
+
+  const copyToClipboard = async () => {
+    await navigator.clipboard.writeText(webhookUrl);
+  };
 
   return (
     <div className="container">
       <h1>Basket: {basketName}</h1>
-      <p>Send webhook requests to: {webhookUrl}</p>
+      <p>
+        Send webhook requests to: {webhookUrl}
+        <button onClick={copyToClipboard}>Click to copy</button>
+      </p>
 
       <div className="col-md-10">
         {requests.map((request) => {
           const dateTime = new Date(request.received_at);
           const time = dateTime.toLocaleTimeString("en-US");
           const date = dateTime.toLocaleDateString("en-US");
+          console.log(dateTime);
           return (
             <div className="row mb-5" key={request.id}>
               <div className="col-md-2">

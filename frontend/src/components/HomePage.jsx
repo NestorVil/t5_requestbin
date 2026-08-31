@@ -11,8 +11,10 @@ function HomePage() {
   useEffect(() => {
     const getBasketName = async () => {
       try {
-        const res = await axios.get(`/api/new-basket`);
-        setBasketName(res.data);
+        const newBasketName = await axios.get(`/api/new-basket`);
+        const newBaskets = await axios.get("/api/baskets");
+        setBasketName(newBasketName.data);
+        setBaskets(newBaskets.data);
       } catch (error) {
         console.error(error.message);
       }
@@ -34,7 +36,7 @@ function HomePage() {
   };
 
   return (
-    <div>
+    <div className="container">
       <h1>New Basket</h1>
       <input
         type="text"
@@ -45,9 +47,13 @@ function HomePage() {
       />
       <button onClick={createBasket}>Create</button>
       <div>
-        <p>My Baskets:</p>
+        <div>My Baskets:</div>
         {baskets.map((basket) => {
-          return <li>{basket.name}</li>;
+          return (
+            <div key={basket.id}>
+              <a href={`/web/${basket.name}`}>{basket.name}</a>
+            </div>
+          );
         })}
       </div>
     </div>
