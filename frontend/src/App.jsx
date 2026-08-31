@@ -3,11 +3,18 @@ import { loadBins, addBin, removeBin } from './bins.js';
 
 const POLL_MS = 2000;
 
+// Where captured requests are sent. The backend serves them at its own origin's
+// root (e.g. http://localhost:3001/<bin-name>). Override for ngrok/prod with
+// VITE_INGEST_BASE, e.g. VITE_INGEST_BASE=https://abc123.ngrok-free.app
+const INGEST_BASE =
+  import.meta.env.VITE_INGEST_BASE ||
+  `${window.location.protocol}//${window.location.hostname}:3001`;
+
 // ---------------------------------------------------------------------------
-// tiny hash router: #/ -> index, #/b/<binId> -> one bin
+// tiny hash router: #/ -> index, #/<binId> -> one bin
 // ---------------------------------------------------------------------------
 function parseHash() {
-  const m = window.location.hash.match(/^#\/b\/(.+)$/);
+  const m = window.location.hash.match(/^#\/(.+)$/);
   return m ? { name: 'bin', binId: decodeURIComponent(m[1]) } : { name: 'index' };
 }
 
@@ -25,7 +32,7 @@ const goIndex = () => {
   window.location.hash = '#/';
 };
 const goBin = (binId) => {
-  window.location.hash = `#/b/${encodeURIComponent(binId)}`;
+  window.location.hash = `#/${encodeURIComponent(binId)}`;
 };
 
 // ---------------------------------------------------------------------------
@@ -123,7 +130,7 @@ function BinIndex() {
       {trimmed && (
         <p className="muted" style={{ fontSize: '0.8rem' }}>
           {valid ? (
-            <>endpoint: <code>{window.location.origin}/b/{trimmed}</code></>
+            <>endpoint: <code>{INGEST_BASE}/{trimmed}</code></>
           ) : (
             '3–64 characters: letters, numbers, hyphen, underscore'
           )}
@@ -178,7 +185,7 @@ function BinView({ binId }) {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const ingestUrl = `${window.location.origin}/b/${binId}`;
+  const ingestUrl = `${INGEST_BASE}/${binId}`;
 
   // existence check + local registration (covers opening via a shared link)
   useEffect(() => {
@@ -225,7 +232,7 @@ function BinView({ binId }) {
   }, [status, loadRequests]);
 
   const sendTestRequest = useCallback(async () => {
-    await fetch(`/b/${binId}/hello?demo=1`, {
+    await fetch(`${INGEST_BASE}/${binId}/hello?demo=1`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hello: 'world', at: new Date().toISOString() }),

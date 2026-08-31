@@ -35,7 +35,12 @@ npm run dev            # starts backend :3001 and frontend :5173 together
 
 - UI:            http://localhost:5173
 - API health:    http://localhost:3001/health
-- Ingest URL:    http://localhost:3001/b/<binId>   (proxied as /b/... from the UI origin)
+- Ingest URL:    http://localhost:3001/<bin-name>   (the backend's root; any method, any sub-path)
+
+The ingest endpoint lives at the backend origin's root. `/api`, `/health`,
+`/bins`, `/b` and a couple of file names are reserved and can't be bin names.
+The UI derives the ingest base from `VITE_INGEST_BASE` (see `frontend/.env.example`),
+defaulting to `http://<host>:3001`.
 
 Run them separately if you prefer:
 
@@ -46,7 +51,8 @@ npm run dev --prefix frontend
 
 ## Testing over ngrok
 
-The UI needs to be reachable from another device / an external webhook sender.
+For an external webhook sender (e.g. GitHub) to reach a bin, the **backend**
+needs a public URL.
 
 1. Install the CLI: `brew install ngrok` (already done on this machine).
 2. Create a free account at https://dashboard.ngrok.com, open **Your Authtoken**,
@@ -57,18 +63,22 @@ The UI needs to be reachable from another device / an external webhook sender.
    ngrok config add-authtoken <YOUR_TOKEN>
    ```
 
-4. Start `npm run dev`, then in another terminal:
+4. Start `npm run dev`, then in another terminal tunnel the backend:
 
    ```bash
-   ngrok http 5173
+   ngrok http 3001
    ```
 
-   ngrok prints a `https://<random>.ngrok-free.app` URL. Open it to use the UI
-   from anywhere. Vite proxies `/api` and `/b/...` to the backend, so that one
-   URL also accepts captured requests:
-   `https://<random>.ngrok-free.app/b/<binId>`.
+   ngrok prints a `https://<random>.ngrok-free.app` URL. Webhook / capture URL:
+   `https://<random>.ngrok-free.app/<bin-name>`.
 
-Vite is configured with `allowedHosts: true`, so the ngrok domain is accepted
-without further config. The optional `ngrok.example.yml` shows a named-tunnel
-setup (`cp ngrok.example.yml ngrok.yml && ngrok start --all --config ngrok.yml`);
-running two tunnels at once requires a paid ngrok plan.
+5. So the UI shows that same public URL (instead of `localhost:3001`), run the
+   frontend with:
+
+   ```bash
+   VITE_INGEST_BASE=https://<random>.ngrok-free.app npm run dev --prefix frontend
+   ```
+
+The UI itself only needs to run locally while you watch requests arrive. Claim
+your one free static domain at dashboard.ngrok.com -> **Domains** and use
+`ngrok http --url=<name>.ngrok-free.app 3001` so the URL survives restarts.

@@ -42,6 +42,8 @@ api.use(cors({ origin: CORS_ORIGINS }));
 api.use(express.json());
 
 const BIN_ID_RE = /^[A-Za-z0-9_-]{3,64}$/;
+// paths the backend serves itself - can't be used as bin names
+const RESERVED = new Set(['api', 'health', 'b', 'bins', 'favicon.ico', 'robots.txt']);
 
 api.post('/bins', (req, res) => {
   const binId = typeof req.body?.binId === 'string' ? req.body.binId.trim() : '';
@@ -52,6 +54,9 @@ api.post('/bins', (req, res) => {
     return res.status(400).json({
       error: 'binId must be 3-64 characters: letters, numbers, hyphen, underscore',
     });
+  }
+  if (RESERVED.has(binId.toLowerCase())) {
+    return res.status(400).json({ error: 'that name is reserved, pick another' });
   }
   if (getBin(binId)) {
     return res.status(409).json({ error: 'that name is already taken' });
@@ -92,14 +97,25 @@ api.delete('/bins/:binId/requests', (req, res) => {
 
 app.use('/api', api);
 
+app.get('/', (_req, res) => {
+  res.type('text').send('Request Bin backend. POST to /<bin-name> to capture; API under /api');
+});
+
 // ---------------------------------------------------------------------------
-// Capture endpoint - anything sent to /b/:binId (any method, any sub-path)
+// Capture endpoint - anything sent to /<binId> (any method, any sub-path)
+// Must stay last: it matches every remaining single-segment path.
 // ---------------------------------------------------------------------------
 app.all(
-  ['/b/:binId', '/b/:binId/*'],
+  ['/:binId', '/:binId/*'],
+  cors(),
   express.raw({ type: () => true, limit: MAX_BODY_SIZE }),
   (req, res) => {
-    const bin = getBin(req.params.binId);
+    const { binId } = req.params;
+    if (RESERVED.has(binId.toLowerCase())) {
+      return res.status(404).json({ error: 'not found' });
+    }
+
+    const bin = getBin(binId);
     if (!bin) return res.status(404).json({ error: 'bin not found' });
 
     const rawBody = Buffer.isBuffer(req.body) && req.body.length
@@ -108,7 +124,7 @@ app.all(
 
     const subPath = req.params[0] ? `/${req.params[0]}` : '';
 
-    const request = addRequest(req.params.binId, {
+    const request = addRequest(binId, {
       method: req.method,
       path: subPath || '/',
       query: req.query,
@@ -119,13 +135,9 @@ app.all(
       remoteIp: req.ip,
     });
 
-    res.status(200).json({ ok: true, binId: req.params.binId, requestId: request.id });
+    res.status(200).json({ ok: true, binId, requestId: request.id });
   }
 );
-
-app.get('/', (_req, res) => {
-  res.type('text').send('Request Bin backend. Try GET /health or POST /api/bins');
-});
 
 app.use((_req, res) => res.status(404).json({ error: 'not found' }));
 
