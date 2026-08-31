@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { loadBins, addBin, removeBin } from './bins.js';
 
 const POLL_MS = 2000;
@@ -392,8 +392,65 @@ function RequestDetail({ request }) {
         </tbody>
       </table>
 
-      <h3>Body</h3>
-      <pre>{request.body || '(empty)'}</pre>
+      <BodyView body={request.body} />
+    </>
+  );
+}
+
+// Returns pretty-printed JSON, or null if the body isn't valid JSON.
+function prettyJson(body) {
+  try {
+    return JSON.stringify(JSON.parse(body), null, 2);
+  } catch {
+    return null;
+  }
+}
+
+// Wrap JSON tokens in <span> for coloring. Input is escaped first, so the
+// result is safe to inject as HTML.
+function highlightJson(json) {
+  const escaped = json.replace(/[&<>]/g, (c) =>
+    c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'
+  );
+  return escaped.replace(
+    /("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+    (match) => {
+      let cls = 'j-num';
+      if (/^"/.test(match)) {
+        cls = /:\s*$/.test(match) ? 'j-key' : 'j-str';
+      } else if (match === 'true' || match === 'false') {
+        cls = 'j-bool';
+      } else if (match === 'null') {
+        cls = 'j-null';
+      }
+      return `<span class="${cls}">${match}</span>`;
+    }
+  );
+}
+
+function BodyView({ body }) {
+  const [formatted, setFormatted] = useState(false);
+  const pretty = useMemo(() => (body ? prettyJson(body) : null), [body]);
+  const canFormat = pretty !== null;
+
+  return (
+    <>
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <h3 style={{ margin: 0 }}>Body</h3>
+        {canFormat && (
+          <button onClick={() => setFormatted((f) => !f)}>
+            {formatted ? 'Show raw' : 'Format JSON'}
+          </button>
+        )}
+      </div>
+      {formatted && canFormat ? (
+        <pre
+          className="json"
+          dangerouslySetInnerHTML={{ __html: highlightJson(pretty) }}
+        />
+      ) : (
+        <pre>{body || '(empty)'}</pre>
+      )}
     </>
   );
 }
