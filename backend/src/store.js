@@ -13,8 +13,7 @@ const genId = (bytes = 8) => randomBytes(bytes).toString('base64url');
 /** @type {Map<string, { binId: string, createdAt: string, requests: object[] }>} */
 const bins = new Map();
 
-export function createBin() {
-  const binId = genId(8);
+export function createBin(binId = genId(8)) {
   const bin = { binId, createdAt: new Date().toISOString(), requests: [] };
   bins.set(binId, bin);
   return bin;

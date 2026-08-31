@@ -41,8 +41,22 @@ const api = express.Router();
 api.use(cors({ origin: CORS_ORIGINS }));
 api.use(express.json());
 
-api.post('/bins', (_req, res) => {
-  const bin = createBin();
+const BIN_ID_RE = /^[A-Za-z0-9_-]{3,64}$/;
+
+api.post('/bins', (req, res) => {
+  const binId = typeof req.body?.binId === 'string' ? req.body.binId.trim() : '';
+  if (!binId) {
+    return res.status(400).json({ error: 'binId is required' });
+  }
+  if (!BIN_ID_RE.test(binId)) {
+    return res.status(400).json({
+      error: 'binId must be 3-64 characters: letters, numbers, hyphen, underscore',
+    });
+  }
+  if (getBin(binId)) {
+    return res.status(409).json({ error: 'that name is already taken' });
+  }
+  const bin = createBin(binId);
   res.status(201).json(serializeBin(bin));
 });
 

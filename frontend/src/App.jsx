@@ -56,27 +56,43 @@ export default function App() {
 
 // ---------------------------------------------------------------------------
 
+const BIN_ID_RE = /^[A-Za-z0-9_-]{3,64}$/;
+
 function BinIndex() {
   const [bins, setBins] = useState(loadBins);
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmId, setConfirmId] = useState(null);
 
-  const createBin = useCallback(async () => {
-    setError('');
-    setBusy(true);
-    try {
-      const res = await fetch('/api/bins', { method: 'POST' });
-      if (!res.ok) throw new Error(`create failed (${res.status})`);
-      const bin = await res.json();
-      setBins(addBin({ binId: bin.binId, createdAt: bin.createdAt }));
-      goBin(bin.binId);
-    } catch (e) {
-      setError(String(e.message || e));
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+  const trimmed = name.trim();
+  const valid = BIN_ID_RE.test(trimmed);
+
+  const createBin = useCallback(
+    async (e) => {
+      e?.preventDefault();
+      if (!valid || busy) return;
+      setError('');
+      setBusy(true);
+      try {
+        const res = await fetch('/api/bins', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ binId: trimmed }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `create failed (${res.status})`);
+        setBins(addBin({ binId: data.binId, createdAt: data.createdAt }));
+        setName('');
+        goBin(data.binId);
+      } catch (err) {
+        setError(String(err.message || err));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [trimmed, valid, busy]
+  );
 
   const deleteBin = useCallback(async (binId) => {
     try {
@@ -90,12 +106,29 @@ function BinIndex() {
 
   return (
     <>
-      <div className="row">
-        <button onClick={createBin} disabled={busy}>
-          {busy ? 'Creating…' : 'Create a bin'}
+      <form className="row" onSubmit={createBin}>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="my-endpoint-name"
+          aria-label="endpoint name"
+          autoFocus
+        />
+        <button type="submit" disabled={busy || !valid}>
+          {busy ? 'Creating…' : 'Create bin'}
         </button>
         <span className="muted">{bins.length} bin{bins.length === 1 ? '' : 's'}</span>
-      </div>
+      </form>
+
+      {trimmed && (
+        <p className="muted" style={{ fontSize: '0.8rem' }}>
+          {valid ? (
+            <>endpoint: <code>{window.location.origin}/b/{trimmed}</code></>
+          ) : (
+            '3–64 characters: letters, numbers, hyphen, underscore'
+          )}
+        </p>
+      )}
 
       {error && (
         <p style={{ color: '#b00' }}>
@@ -206,6 +239,23 @@ function BinView({ binId }) {
     setSelectedId(null);
   }, [binId]);
 
+  const recreate = useCallback(async () => {
+    setError('');
+    try {
+      const res = await fetch('/api/bins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ binId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `recreate failed (${res.status})`);
+      addBin({ binId, createdAt: data.createdAt });
+      setStatus('ok');
+    } catch (e) {
+      setError(String(e.message || e));
+    }
+  }, [binId]);
+
   const copyEndpoint = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(ingestUrl);
@@ -225,7 +275,9 @@ function BinView({ binId }) {
           Bin <code>{binId}</code> doesn&rsquo;t exist on the server. The backend
           keeps bins in memory for now, so a restart clears them.
         </p>
+        {error && <p style={{ color: '#b00' }}>{error}</p>}
         <div className="row">
+          <button onClick={recreate}>Recreate this bin</button>
           <button onClick={() => { removeBin(binId); goIndex(); }}>
             Remove from my list
           </button>

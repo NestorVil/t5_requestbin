@@ -60,6 +60,14 @@ button {
 button:hover { background: #f0f0f0; }
 button:disabled { opacity: 0.5; cursor: default; }
 
+input {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  min-width: 16rem;
+}
+
 .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 
 code, pre {
