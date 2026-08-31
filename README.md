@@ -42,6 +42,33 @@ After the first setup, `npm run dev` is usually all you need. `npm run db:down`
 stops the databases (data is kept). Env files are optional — copy
 `backend/.env.example` / `frontend/.env.example` only to override a default.
 
+### Expose it with ngrok (for real webhooks / demos)
+
+`localhost` isn't reachable from the internet, so a real webhook sender needs a
+public URL to the **backend** (that's where the ingest endpoint lives).
+
+```bash
+# once per machine — token from dashboard.ngrok.com → Your Authtoken
+ngrok config add-authtoken <TOKEN>
+
+# each session, alongside `npm run dev`
+ngrok http 3001
+```
+
+ngrok prints `https://<subdomain>.ngrok-free.app`. The webhook / capture URL is
+then `https://<subdomain>.ngrok-free.app/<bin-name>` — create that bin in the UI
+first (and recreate it if the backend restarts).
+
+To make the UI *display* the public URL instead of `localhost:3001`, restart the
+frontend with:
+
+```bash
+VITE_INGEST_BASE=https://<subdomain>.ngrok-free.app npm run dev --prefix frontend
+```
+
+Free ngrok URLs change on restart. Claim a free static domain (dashboard →
+Domains) and use `ngrok http --url=<name>.ngrok-free.app 3001` to keep it stable.
+
 ## URLs
 
 | What | URL |
@@ -53,21 +80,6 @@ stops the databases (data is kept). Env files are optional — copy
 
 `api`, `health`, `bins`, `b`, `favicon.ico`, `robots.txt` are reserved bin names.
 Reset the databases with `docker compose down -v && npm run db:up && npm run migrate`.
-
-## Public URL with ngrok
-
-Expose the **backend** (that's where the ingest endpoint is):
-
-```bash
-ngrok config add-authtoken <TOKEN>     # once, from dashboard.ngrok.com
-ngrok http 3001
-```
-
-Webhook URL is then `https://<subdomain>.ngrok-free.app/<bin-name>` (create that
-bin first). To show the public URL in the UI, run the frontend with
-`VITE_INGEST_BASE=https://<subdomain>.ngrok-free.app npm run dev --prefix frontend`.
-A free static domain (dashboard → Domains, `ngrok http --url=<name>.ngrok-free.app 3001`)
-keeps the URL stable across restarts.
 
 ## Troubleshooting
 
