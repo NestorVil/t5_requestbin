@@ -115,7 +115,7 @@ app.post("/api/baskets/:name", async (req, res) => {
 // app.delete("/api/baskets/:name", (req, res) => {});
 
 // Requests
-app.post("/:name", async (req, res) => {
+app.all("/:name", async (req, res) => {
   const { name } = req.params;
 
   const basket = await getBasket(name);
@@ -128,7 +128,7 @@ app.post("/:name", async (req, res) => {
 
   const result = await pool.query(
     `INSERT INTO http_requests (basket_id, method, headers, body)
-     VALUES ($1, $2, $3, $4) 
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
     [
       basket.id,
@@ -150,8 +150,8 @@ app.get("/api/baskets/:name/requests", async (req, res) => {
   const { name } = req.params;
   const request = await pool.query(
     `SELECT *
-     FROM baskets 
-     JOIN http_requests 
+     FROM baskets
+     JOIN http_requests
      ON baskets.id = http_requests.basket_id
      WHERE baskets.name = $1;
     `,
