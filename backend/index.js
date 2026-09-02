@@ -1,5 +1,6 @@
 const express = require("express");
 const session = require("express-session");
+const cron = require("node-cron");
 const cors = require("cors");
 const http = require("http");
 const pgSession = require("connect-pg-simple")(session);
@@ -54,6 +55,23 @@ io.on("connection", (socket) => {
   });
 });
 
+function deleteExpiredBasketsJob() {
+  cron.schedule("*/20 * * * * *", async () => {
+    try {
+      const result = await pool.query(`
+        DELETE FROM baskets
+        WHERE expires_at <= NOW()
+        RETURNING *
+      `);
+
+      io.emit("cron-delete", result.rows);
+      console.log(`Deleted ${result.rowCount} expired basket(s)`);
+    } catch (error) {
+      console.error("Failed to delete expired baskets:", error);
+    }
+  });
+}
+
 // Baskets
 app.get("/api/new-basket", async (req, res) => {
   let name = generateBasketName();
@@ -103,9 +121,10 @@ app.post("/api/baskets/:name", async (req, res) => {
       await pool.query("INSERT INTO sessions (sid) VALUES ($1)", [sessionID]);
     }
 
+    const expires_at = new Date(Date.now() + 30 * 1000); // Expires in 60 seconds
     const newBasket = await pool.query(
-      "INSERT INTO baskets (session_id, name) VALUES($1, $2) RETURNING *",
-      [sessionID, name]
+      "INSERT INTO baskets (session_id, name, expires_at) VALUES($1, $2, $3) RETURNING *",
+      [sessionID, name, expires_at]
     );
     res.json(newBasket.rows[0]);
   } catch (error) {
@@ -161,6 +180,8 @@ app.get("/api/baskets/:name/requests", async (req, res) => {
 });
 // app.delete("/api/baskets/:name/requests");
 // app.delete("/api/baskets/:name/requests/:id", (req, res) => {});
+
+deleteExpiredBasketsJob();
 
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

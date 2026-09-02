@@ -13,7 +13,8 @@ CREATE TABLE baskets (
   id SERIAL PRIMARY KEY,
   session_id VARCHAR REFERENCES sessions(sid) ON DELETE CASCADE,
   total_count INT DEFAULT 0,
-  name VARCHAR(20) UNIQUE NOT NULL
+  name VARCHAR(20) UNIQUE NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE http_requests (

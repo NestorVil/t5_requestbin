@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
+
+const socket = io("http://localhost:3000");
 
 function HomePage() {
   const [basketName, setBasketName] = useState("");
@@ -19,7 +22,19 @@ function HomePage() {
         console.error(error.message);
       }
     };
+
     getBasketName();
+
+    socket.on("cron-delete", (deletedBaskets) => {
+      const namesToRemove = deletedBaskets.map((basket) => basket.name);
+      if (namesToRemove.length > 0) {
+        window.location.href = "/web";
+      }
+    });
+
+    return () => {
+      socket.off("cron-delete");
+    };
   }, []);
 
   const createBasket = async (e) => {
