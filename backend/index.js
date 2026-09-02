@@ -30,12 +30,12 @@ connectMongo()
     mongoDb = db;
   })
   .catch((error) => {
-    console.log(error);  // How do we want to handle failure to connect to Mongo?
+    console.log(error);  // How do we want to handle failure to connect to Mongo? Fuggedaboudit!
   })
 
 app.use(cors());
 
-app.all("/:name", express.text({ type: '*/*' }), recordToBasket, async (req, res) => {
+const requestHandler = async(req, res) => {
   const { name } = req.params;
 
   const basket = await getBasket(name);
@@ -71,7 +71,10 @@ app.all("/:name", express.text({ type: '*/*' }), recordToBasket, async (req, res
   res.status(200).json({
     message: "Webhook received",
   });
-});
+}
+
+app.all("/basket/:name", express.text({ type: '*/*' }), recordToBasket, requestHandler);
+app.all("/basket/:name/*path", express.text({ type: '*/*' }), recordToBasket, requestHandler);
 
 app.use(express.json());
 app.use(
