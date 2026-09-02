@@ -29,6 +29,12 @@ function BasketPage() {
       setRequests((currentRequests) => [...currentRequests, newRequest]);
     });
 
+    socket.on("cron-delete", (deletedBaskets) => {
+      if (deletedBaskets.some((basket) => basket.name === basketName)) {
+        window.location.href = "/web";
+      }
+    });
+
     return () => {
       socket.off("webhook-update");
     };
