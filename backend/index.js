@@ -34,7 +34,7 @@ connectMongo()
 
 app.use(cors());
 
-app.all("/:name", express.text({ type: '*/*' }), recordToBasket, async (req, res) => {
+const requestHandler = async () => {
   const { name } = req.params;
 
   const basket = await getBasket(name);
@@ -70,6 +70,14 @@ app.all("/:name", express.text({ type: '*/*' }), recordToBasket, async (req, res
   res.status(200).json({
     message: "Webhook received",
   });
+};
+
+app.all("/basket/:name", express.text({ type: '*/*' }), recordToBasket, async (req, res) => {
+  await requestHandler();
+});
+
+app.all("/basket/:name/path*", express.text({ type: '*/*' }), recordToBasket, async (req, res) => {
+  await requestHandler();
 });
 
 app.use(express.json());

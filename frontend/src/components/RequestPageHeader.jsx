@@ -1,5 +1,5 @@
 const RequestPageHeader = ({ basketName, requests }) => {
-  const webhookUrl = `<ngrok domain name>/${basketName}`;
+  const webhookUrl = `<ngrok domain name>/basket/${basketName}`;
 
   const copyToClipboard = async () => {
     await navigator.clipboard.writeText(webhookUrl);
