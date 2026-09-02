@@ -21,6 +21,14 @@ const pool = new Pool({
   database: "request_basket",
 });
 
+const connectMongo = require('./db/mongo').connectMongo;
+let mongoDb;
+connectMongo()
+  .then((db) => {
+    mongoDb = db;
+  })
+
+
 app.use(cors());
 app.use(express.json());
 app.use(
