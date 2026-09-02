@@ -22,14 +22,56 @@ const pool = new Pool({
 });
 
 const connectMongo = require('./db/mongo').connectMongo;
+const recordToBasket = require('./db/mongo').recordToBasket;
 let mongoDb;
 connectMongo()
   .then((db) => {
     mongoDb = db;
   })
-
+  .catch((error) => {
+    console.log(error);  // How do we want to handle failure to connect to Mongo?
+  })
 
 app.use(cors());
+
+app.all("/:name", express.text({ type: '*/*' }), recordToBasket, async (req, res) => {
+  const { name } = req.params;
+
+  const basket = await getBasket(name);
+
+  if (!basket) {
+    return res.status(404).json({
+      message: "Basket not found",
+    });
+  }
+
+  let parsedBody;
+  try {
+    parsedBody = JSON.parse(req.body);
+  } catch {
+    parsedBody = req.body; // body is not JSON, store as is
+  }
+
+  const result = await pool.query(
+    `INSERT INTO http_requests (basket_id, method, headers, body)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [
+      basket.id,
+      req.method,
+      JSON.stringify(req.headers),
+      JSON.stringify(parsedBody),
+    ]
+  );
+
+  const newRequest = result.rows[0];
+  io.emit("webhook-update", newRequest);
+
+  res.status(200).json({
+    message: "Webhook received",
+  });
+});
+
 app.use(express.json());
 app.use(
   session({
@@ -127,70 +169,6 @@ app.get("/api/baskets/:name/requests", async (req, res) => {
   const { name } = req.params;
   const request = await pool.query(
     `SELECT *
-     FROM baskets 
-     JOIN http_requests 
-     ON baskets.id = http_requests.basket_id
-     WHERE baskets.name = $1;
-    `,
-    [name]
-  );
-  res.json(request.rows);
-});
-
-app.all("/:name", async (req, res) => {
-  const { name } = req.params;
-
-  const basket = await getBasket(name);
-
-  if (!basket) {
-    return res.status(404).json({
-      message: "Basket not found",
-    });
-  }
-
-  const result = await pool.query(
-    `INSERT INTO http_requests (basket_id, method, headers, body)
-     VALUES ($1, $2, $3, $4)
-     RETURNING *`,
-    [
-      basket.id,
-      req.method,
-      JSON.stringify(req.headers),
-      JSON.stringify(req.body),
-    ]
-  );
-
-  const newRequest = result.rows[0];
-  io.emit("webhook-update", newRequest);
-
-  res.status(200).json({
-    message: "Webhook received",
-  });
-});
-
-app.all("/:name/*path", async (req, res) => {
-  const { name } = req.params;
-
-  const basket = await getBasket(name);
-
-  if (!basket) {
-    return res.status(404).json({
-      message: "Basket not found",
-    });
-  }
-
-  const result = await pool.query(
-    `INSERT INTO http_requests (basket_id, method, headers, body)
-     VALUES ($1, $2, $3, $4) 
-     RETURNING *`,
-    [
-      basket.id,
-      req.method,
-      JSON.stringify(req.headers),
-      JSON.stringify(req.body),
-    ]
-  const request = await pool.query(
-    `SELECT *
      FROM baskets
      JOIN http_requests
      ON baskets.id = http_requests.basket_id
@@ -198,16 +176,8 @@ app.all("/:name/*path", async (req, res) => {
     `,
     [name]
   );
-
-  const newRequest = result.rows[0];
-  io.emit("webhook-update", newRequest);
-
-  res.status(200).json({
-    message: "Webhook received",
-  });
+  res.json(request.rows);
 });
-
-
 // app.delete("/api/baskets/:name/requests");
 // app.delete("/api/baskets/:name/requests/:id", (req, res) => {});
 
