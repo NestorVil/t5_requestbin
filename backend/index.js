@@ -21,6 +21,14 @@ const pool = new Pool({
   database: "request_basket",
 });
 
+const connectMongo = require('./db/mongo').connectMongo;
+let mongoDb;
+connectMongo()
+  .then((db) => {
+    mongoDb = db;
+  })
+
+
 app.use(cors());
 app.use(express.json());
 app.use(
@@ -142,7 +150,7 @@ app.all("/:name", async (req, res) => {
 
   const result = await pool.query(
     `INSERT INTO http_requests (basket_id, method, headers, body)
-     VALUES ($1, $2, $3, $4) 
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
     [
       basket.id,
@@ -181,6 +189,14 @@ app.all("/:name/*path", async (req, res) => {
       JSON.stringify(req.headers),
       JSON.stringify(req.body),
     ]
+  const request = await pool.query(
+    `SELECT *
+     FROM baskets
+     JOIN http_requests
+     ON baskets.id = http_requests.basket_id
+     WHERE baskets.name = $1;
+    `,
+    [name]
   );
 
   const newRequest = result.rows[0];
