@@ -115,7 +115,22 @@ app.post("/api/baskets/:name", async (req, res) => {
 // app.delete("/api/baskets/:name", (req, res) => {});
 
 // Requests
-app.post("/:name", async (req, res) => {
+app.get("/api/baskets/:name/requests", async (req, res) => {
+  const { name } = req.params;
+  const request = await pool.query(
+    `SELECT *
+     FROM baskets 
+     JOIN http_requests 
+     ON baskets.id = http_requests.basket_id
+     WHERE baskets.name = $1;
+    `,
+    [name]
+  );
+  res.json(request.rows);
+});
+
+
+app.all("/:name", async (req, res) => {
   const { name } = req.params;
 
   const basket = await getBasket(name);
@@ -146,19 +161,38 @@ app.post("/:name", async (req, res) => {
   });
 });
 
-app.get("/api/baskets/:name/requests", async (req, res) => {
+app.all("/:name/*path", async (req, res) => {
   const { name } = req.params;
-  const request = await pool.query(
-    `SELECT *
-     FROM baskets 
-     JOIN http_requests 
-     ON baskets.id = http_requests.basket_id
-     WHERE baskets.name = $1;
-    `,
-    [name]
+
+  const basket = await getBasket(name);
+
+  if (!basket) {
+    return res.status(404).json({
+      message: "Basket not found",
+    });
+  }
+
+  const result = await pool.query(
+    `INSERT INTO http_requests (basket_id, method, headers, body)
+     VALUES ($1, $2, $3, $4) 
+     RETURNING *`,
+    [
+      basket.id,
+      req.method,
+      JSON.stringify(req.headers),
+      JSON.stringify(req.body),
+    ]
   );
-  res.json(request.rows);
+
+  const newRequest = result.rows[0];
+  io.emit("webhook-update", newRequest);
+
+  res.status(200).json({
+    message: "Webhook received",
+  });
 });
+
+
 // app.delete("/api/baskets/:name/requests");
 // app.delete("/api/baskets/:name/requests/:id", (req, res) => {});
 
