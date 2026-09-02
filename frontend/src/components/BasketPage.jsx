@@ -1,24 +1,26 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { io } from "socket.io-client";
-import axios from "axios";
+import services from '../communications/communications';
+import RequestMethodDate from "./RequestMethodDate";
+import RequestPageHeader from "./RequestPageHeader";
+import RequestHeader from "./RequestHeader";
+import RequestBody from "./RequestBody";
 
 const socket = io("http://localhost:3000");
 
 function BasketPage() {
   const { basketName } = useParams();
-  const webhookUrl = `<ngrok domain name>/${basketName}`;
   const [requests, setRequests] = useState([]);
 
   useEffect(() => {
     const getRequests = async () => {
-      try {
-        const res = await axios.get(`/api/baskets/${basketName}/requests`);
-        setRequests(res.data);
-      } catch (error) {
-        console.error(error.message);
-      }
+      const data = await services.getBasketRequests(basketName);
+
+      const newestFirst = (a, b) => new Date(b.received_at) - new Date(a.received_at);
+      setRequests([...data].sort(newestFirst));
     };
+
     getRequests();
 
     socket.on("webhook-update", (newRequest) => {
@@ -32,88 +34,20 @@ function BasketPage() {
     };
   }, [basketName]);
 
-  const copyToClipboard = async () => {
-    await navigator.clipboard.writeText(webhookUrl);
-  };
-
   return (
     <div className="container">
-      <h1>Basket: {basketName}</h1>
-      <div>Requests: {requests.length}</div>
-      <p>
-        Send webhook requests to: {webhookUrl}
-        <button onClick={copyToClipboard}>Click to copy</button>
-      </p>
+      <RequestPageHeader basketName={basketName} requests={requests} />
 
       <div className="col-md-10">
         {requests.map((request) => {
-          const dateTime = new Date(request.received_at);
-          const time = dateTime.toLocaleTimeString("en-US");
-          const date = dateTime.toLocaleDateString("en-US");
           return (
             <div className="row mb-5" key={request.id}>
-              <div className="col-md-2">
-                <h4>[{request.method.toUpperCase()}]</h4>
-                <div>{time}</div>
-                <div>{date}</div>
-              </div>
+              <RequestMethodDate request={request} />
+
               <div className="col-md-10">
                 <div className="accordion" id="accordionExample">
-                  <div className="accordion-item">
-                    <h2
-                      className="accordion-header"
-                      id={`headingOne${request.id}`}
-                    >
-                      <button
-                        className="accordion-button"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target={`#collapseOne${request.id}`}
-                        aria-expanded="true"
-                        aria-controls={`collapseOne${request.id}`}
-                      >
-                        Headers
-                      </button>
-                    </h2>
-                    <div
-                      id={`collapseOne${request.id}`}
-                      className="accordion-collapse collapse"
-                      aria-labelledby={`headingOne${request.id}`}
-                      data-bs-parent="#accordionExample"
-                    >
-                      <div className="accordion-body">
-                        <pre>{JSON.stringify(request.headers, null, 2)}</pre>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="accordion-item">
-                    <h2
-                      className="accordion-header"
-                      id={`headingTwo${request.id}`}
-                    >
-                      <button
-                        className="accordion-button collapsed"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target={`#collapseTwo${request.id}`}
-                        aria-expanded="false"
-                        aria-controls={`collapseTwo${request.id}`}
-                      >
-                        Body
-                      </button>
-                    </h2>
-                    <div
-                      id={`collapseTwo${request.id}`}
-                      className="accordion-collapse collapse show"
-                      aria-labelledby={`headingTwo${request.id}`}
-                      data-bs-parent="#accordionExample"
-                    >
-                      <div className="accordion-body">
-                        <pre>{JSON.stringify(request.body)}</pre>
-                      </div>
-                    </div>
-                  </div>
+                  <RequestHeader request={request} />
+                  <RequestBody request={request} />
                 </div>
               </div>
             </div>
@@ -122,5 +56,6 @@ function BasketPage() {
       </div>
     </div>
   );
-}
+};
+
 export default BasketPage;

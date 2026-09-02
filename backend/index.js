@@ -129,7 +129,6 @@ app.get("/api/baskets/:name/requests", async (req, res) => {
   res.json(request.rows);
 });
 
-
 app.all("/:name", async (req, res) => {
   const { name } = req.params;
 
