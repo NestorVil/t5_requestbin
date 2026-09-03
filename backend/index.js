@@ -15,14 +15,14 @@ const bearerToken = (req) => {
 
 const app = express();
 const server = http.createServer(app);
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Move this later if needed
 const Pool = require("pg").Pool;
 const pool = new Pool({
   user: "postgres",
   password: process.env.POSTGRES_PASSWORD,
-  host: "localhost",
+  host: process.env.DB_HOST || "localhost",
   port: 5432,
   database: "request_basket",
 });
@@ -87,7 +87,7 @@ app.use(express.json());
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
   },
 });
 
