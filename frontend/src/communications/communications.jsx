@@ -2,13 +2,6 @@ import axios from "axios";
 
 const baseURL = '/api';
 const tokenKey = (name) => `basket_${name}`;
-const readTokens = () => {
-  try {
-    return JSON.parse(localStorage.getItem(TOKENS_KEY)) || {};
-  } catch {
-    return {};
-  }
-};
 const saveToken = (name, token) => {
   localStorage.setItem(tokenKey(name), token);
 };
@@ -35,6 +28,22 @@ const createBasket = async (basketName) => {
   return res.data
 };
 
+const deleteBasket = async (basketName) => {
+  const token = getToken(basketName);
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  try {
+    await axios.delete(`${baseURL}/baskets/${basketName}`, {headers});
+  } catch (error) {
+    if (error.response?.status !== 404) {
+      return {ok: false, status: error.response?.status};
+    }
+  }
+
+  localStorage.removeItem(tokenKey(basketName));
+  return {ok: true};
+}
+
+
 const getBasketRequests = async (basketName, tokenOverride) => {
   const token = tokenOverride || getToken(basketName);
   const headers = token ? { Authorization: `Bearer ${token}`} : {};
@@ -55,5 +64,6 @@ export default {
   getNewBasketName,
   listBaskets,
   createBasket,
+  deleteBasket,
   getBasketRequests,
 }

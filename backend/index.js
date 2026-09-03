@@ -200,8 +200,11 @@ app.get("/api/baskets/:name/requests", requireBasketToken, async (req, res) => {
   );
   res.json(result.rows);
 });
-// app.delete("/api/baskets/:name/requests");
-// app.delete("/api/baskets/:name/requests/:id", (req, res) => {});
+
+app.delete("/api/baskets/:name", requireBasketToken, async (req, res) => {
+  await pool.query("DELETE FROM baskets WHERE id = $1", [req.basket.id]);
+  res.status(204).end()
+})
 
 deleteExpiredBasketsJob();
 
