@@ -104,6 +104,7 @@ function BasketPage() {
               <RequestMethodDate request={request} />
 
               <div className="accordion mt-2" id="accordionExample">
+                <RequestPath request={request} />
                 <RequestHeader request={request} />
                 <RequestBody request={request} />
               </div>
@@ -113,6 +114,6 @@ function BasketPage() {
       )}
     </div>
   );
-};
+}
 
 export default BasketPage;
