@@ -1,4 +1,5 @@
 const RequestHeader = ({ request }) => {
+  console.log(request);
   return (
     <div className="accordion-item">
       <h2
