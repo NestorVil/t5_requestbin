@@ -1,13 +1,10 @@
-import 'bootstrap/dist/css/bootstrap.min.css';
-
 const RequestPath = ({ request }) => {
+  console.log(request);
   return (
-    <div className="panel-heading">
-      <h4 className="panel-title">
-        {request.path}
-      </h4>
+    <div className="req-path mb-2">
+      <code className="req-path-value">{request.path}</code>
     </div>
-  )
+  );
 };
 
 export default RequestPath;
