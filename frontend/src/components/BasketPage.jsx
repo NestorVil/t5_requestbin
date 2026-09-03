@@ -18,6 +18,7 @@ function BasketPage() {
   const [needsToken, setNeedsToken] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
   const [error, setError] = useState("");
+
   const load = useCallback(async (tokenOverride) => {
     const res = await services.getBasketRequests(basketName, tokenOverride);
     if (res.ok) {
@@ -34,8 +35,7 @@ function BasketPage() {
 
   useEffect(() => {
     load(); // was getRequests()
-
-
+    console.log('test');
     socket.on("webhook-update", (event) => {
       if (event?.basketName === basketName) load();
     });

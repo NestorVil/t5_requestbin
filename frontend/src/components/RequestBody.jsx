@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 // wrap JSON tokens in <span>s; input is escaped first so it's safe to inject
 function highlightJson(json) {
   const esc = json.replace(/[&<>]/g, (c) =>

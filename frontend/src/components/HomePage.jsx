@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { io } from "socket.io-client";
-import { useNavigate } from "react-router-dom";
 import services from '../communications/communications';
 import BasketInput from "./BasketInput";
 import BasketList from "./BasketList";
