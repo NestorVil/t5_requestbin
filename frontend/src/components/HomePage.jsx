@@ -11,11 +11,17 @@ const socket = io("http://localhost:3000");
 function HomePage() {
   const [basketName, setBasketName] = useState("");
   const [baskets, setBaskets] = useState([]);
+  const refreshBaskets = () => setBaskets(services.listBaskets());
+  const handleDelete = async (name) => {
+    if (!window.confirm(`Delete "${name}"?`)) return;
+    await services.deleteBasket(name);
+    refreshBaskets();
+  }
 
   useEffect(() => {
     const getBasketName = async () => {
       const newBasketName = await services.getNewBasketName();
-      const newBaskets = await services.getNewBaskets();
+      const newBaskets = services.listBaskets();
 
       setBasketName(newBasketName);
       setBaskets(newBaskets);
@@ -40,7 +46,7 @@ function HomePage() {
   return (
     <div className="container">
       <BasketInput basketName={basketName} setBasketName={setBasketName} />
-      <BasketList baskets={baskets}/>
+      <BasketList baskets={baskets} onDelete={handleDelete} />
     </div>
   );
 }

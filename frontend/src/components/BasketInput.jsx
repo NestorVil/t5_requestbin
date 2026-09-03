@@ -7,7 +7,8 @@ const BasketInput = ({ basketName, setBasketName}) => {
   const createBasket = async (e) => {
     e.preventDefault();
 
-    await services.createBasket(basketName);
+    const data = await services.createBasket(basketName);
+    window.prompt("Your token (copy it now — shown only once): ", data.token);
     navigate(`/web/${basketName}`);
   };
 

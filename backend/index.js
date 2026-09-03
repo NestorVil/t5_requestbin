@@ -1,12 +1,17 @@
 const express = require("express");
-const session = require("express-session");
 const cron = require("node-cron");
 const cors = require("cors");
 const http = require("http");
-const pgSession = require("connect-pg-simple")(session);
 const { generateBasketName } = require("./utils");
 const { Server } = require("socket.io");
 const { Socket } = require("engine.io");
+
+const crypto = require("node:crypto");
+const hashToken = (t) => crypto.createHash("sha256").update(t).digest("hex");
+const bearerToken = (req) => {
+  const m = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
+  return m ? m[1] : null;
+};
 
 const app = express();
 const server = http.createServer(app);
@@ -68,7 +73,7 @@ const requestHandler = async(req, res) => {
   );
 
   const newRequest = result.rows[0];
-  io.emit("webhook-update", newRequest);
+  io.emit("webhook-update", { basketName: name});
 
   res.status(200).json({
     message: "Webhook received",
@@ -79,22 +84,6 @@ app.all("/basket/:name", express.text({ type: '*/*' }), recordToBasket, requestH
 app.all("/basket/:name/*path", express.text({ type: '*/*' }), recordToBasket, requestHandler);
 
 app.use(express.json());
-app.use(
-  session({
-    store: new pgSession({
-      pool,
-      tableName: "sessions",
-    }),
-    secret: process.env.SECRET,
-    resave: false,
-    saveUninitialized: true,
-    cookie: {
-      secure: false,
-      httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24,
-    },
-  })
-);
 
 const io = new Server(server, {
   cors: {
@@ -145,65 +134,79 @@ const getBasket = async (name) => {
   return basket.rows[0];
 };
 
-app.get("/api/baskets/:name", async (req, res) => {
-  const name = req.params.name;
-  res.json(getBasket(name));
+async function requireBasketToken(req, res, next) {
+  const basket = await getBasket(req.params.name);
+  if (!basket) return res.status(404).json({message: "Basket not found"});
+
+  const token = bearerToken(req);
+  const provided = token ? Buffer.from(hashToken(token), "hex") : null;
+  const expected = Buffer.from(basket.token_hash, "hex");
+  const ok = provided && provided.length === expected.length &&
+              crypto.timingSafeEqual(provided, expected);
+
+  if (!ok) {
+    return res.status(403).json({ message: "Invalid or missing basket token"});
+  }
+
+  req.basket = basket;
+  next();
+}
+
+app.get("/api/baskets/:name", requireBasketToken, async (req, res) => {
+  const {id, name, expires_at } = req.basket;
+  res.json({id, name, expires_at});
 });
 
-app.get("/api/baskets", async (req, res) => {
-  const sessionID = req.sessionID;
-  const allBaskets = await pool.query(
-    "SELECT name from baskets WHERE baskets.session_id = $1",
-    [sessionID]
-  );
-  res.json(allBaskets.rows);
-});
+// app.get("/api/baskets", async (req, res) => {
+//   const sessionID = req.sessionID;
+//   const allBaskets = await pool.query(
+//     "SELECT name from baskets WHERE baskets.session_id = $1",
+//     [sessionID]
+//   );
+//   res.json(allBaskets.rows);
+// });
 
 app.post("/api/baskets/:name", async (req, res) => {
   try {
     const name = req.params.name;
     const basket = await getBasket(name);
+
     if (basket) {
       return res.status(409).json({ message: "Basket already exists" });
     }
 
-    const sessionID = req.sessionID;
-    const idInDB = await pool.query("SELECT * FROM sessions WHERE sid = $1", [
-      sessionID,
-    ]);
+    const token = crypto.randomBytes(32).toString("base64url");
 
-    if (!idInDB.rows[0]) {
-      await pool.query("INSERT INTO sessions (sid) VALUES ($1)", [sessionID]);
-    }
-
-    const expires_at = new Date(Date.now() + 30 * 1000); // Expires in 60 seconds
+    const expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     const newBasket = await pool.query(
-      "INSERT INTO baskets (session_id, name, expires_at) VALUES($1, $2, $3) RETURNING *",
-      [sessionID, name, expires_at]
+      "INSERT INTO baskets (token_hash, name, expires_at) VALUES($1, $2, $3) RETURNING *",
+      [hashToken(token), name, expires_at],
     );
-    res.json(newBasket.rows[0]);
+    res.json({ ...newBasket.rows[0], token});
   } catch (error) {
     console.error(error.message);
+    res.status(500).json({ message: "Could not create basket"});
   }
 });
-// app.delete("/api/baskets/:name", (req, res) => {});
+
 
 // Requests
-app.get("/api/baskets/:name/requests", async (req, res) => {
-  const { name } = req.params;
-  const request = await pool.query(
+app.get("/api/baskets/:name/requests", requireBasketToken, async (req, res) => {
+  const result = await pool.query(
     `SELECT *
-     FROM baskets
-     JOIN http_requests
-     ON baskets.id = http_requests.basket_id
-     WHERE baskets.name = $1;
+     FROM http_requests
+     WHERE basket_id = $1
+     ORDER BY received_at DESC;
     `,
-    [name]
+    [req.basket.id]
   );
-  res.json(request.rows);
+  res.json(result.rows);
 });
-// app.delete("/api/baskets/:name/requests");
-// app.delete("/api/baskets/:name/requests/:id", (req, res) => {});
+
+app.delete("/api/baskets/:name", requireBasketToken, async (req, res) => {
+  await pool.query("DELETE FROM baskets WHERE id = $1", [req.basket.id]);
+  res.status(204).end()
+})
 
 deleteExpiredBasketsJob();
 
