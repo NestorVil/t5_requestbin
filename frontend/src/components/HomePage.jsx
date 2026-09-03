@@ -29,15 +29,17 @@ function HomePage() {
 
     getBasketName();
 
-    socket.on("cron-delete", (deletedBaskets) => {
+    const handleCronDelete = (deletedBaskets) => {
       const namesToRemove = deletedBaskets.map((basket) => basket.name);
       if (namesToRemove.length > 0) {
         window.location.href = "/web";
       }
-    });
+    };
+
+    socket.on("cron-delete", handleCronDelete);
 
     return () => {
-      socket.off("cron-delete");
+      socket.off("cron-delete", handleCronDelete);
     };
   }, []);
 
