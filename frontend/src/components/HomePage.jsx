@@ -4,7 +4,11 @@ import services from '../communications/communications';
 import BasketInput from "./BasketInput";
 import BasketList from "./BasketList";
 
-const socket = io("http://localhost:3000");
+const socket = io(
+  window.location.hostname === "localhost"
+    ? "http://localhost:3000"
+    : import.meta.env.VITE_SOCKET_URL
+);
 
 function HomePage() {
   const [basketName, setBasketName] = useState("");

@@ -8,7 +8,12 @@ import RequestHeader from "./RequestHeader";
 import RequestBody from "./RequestBody";
 import RequestPath from "./RequestPath";
 
-const socket = io("http://localhost:3000");
+const socket = io(
+  window.location.hostname === "localhost"
+    ? "http://localhost:3000"
+    : import.meta.env.VITE_SOCKET_URL
+);
+
 const newestFirst = (a, b) => new Date(b.received_at) - new Date(a.received_at)
 
 function BasketPage() {
