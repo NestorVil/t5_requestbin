@@ -13,18 +13,28 @@ const BasketInput = ({ basketName, setBasketName}) => {
   };
 
   return (
-    <>
-      <h1>New Basket</h1>
-      <input
-        type="text"
-        name=""
-        id=""
-        value={basketName}
-        onChange={(e) => setBasketName(e.target.value)}
-      />
-
-      <button onClick={createBasket}>Create</button>
-    </>
+    <div className="card-surface p-4 mb-4">
+      <div className="eyebrow">Create</div>
+      <h1 className="h4 mb-1">New basket</h1>
+      <p className="text-muted mb-3" style={{ fontSize: ".9rem" }}>
+        Pick a name, or use the suggested one.
+      </p>
+      <div className="d-flex gap-2 flex-wrap">
+        <input
+          type="text"
+          name=""
+          id=""
+          className="field"
+          style={{ flex: "1 1 220px" }}
+          placeholder="my-bin-name"
+          value={basketName}
+          onChange={(e) => setBasketName(e.target.value)}
+        />
+        <button onClick={createBasket} className="btn2 btn2-primary">
+          Create basket
+        </button>
+      </div>
+    </div>
   );
 };
 
