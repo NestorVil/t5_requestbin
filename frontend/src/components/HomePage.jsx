@@ -15,7 +15,7 @@ function HomePage() {
   useEffect(() => {
     const getBasketName = async () => {
       const newBasketName = await services.getNewBasketName();
-      const newBaskets = await services.getNewBaskets();
+      const newBaskets = services.listBaskets();
 
       setBasketName(newBasketName);
       setBaskets(newBaskets);
