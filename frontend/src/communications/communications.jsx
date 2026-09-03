@@ -2,7 +2,7 @@ import axios from "axios";
 
 const baseURL = window.location.hostname === "localhost"
   ? "/api"
-  : "https://your-backend.onrender.com/api";
+  : import.meta.env.VITE_API_URL;
 
 const tokenKey = (name) => `basket_${name}`;
 const saveToken = (name, token) => {
