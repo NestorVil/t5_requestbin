@@ -20,11 +20,11 @@ const PORT = process.env.PORT || 3000;
 // Move this later if needed
 const Pool = require("pg").Pool;
 const pool = new Pool({
-  user: "postgres",
+  user: process.env.DB_USER || "postgres",
   password: process.env.POSTGRES_PASSWORD,
   host: process.env.DB_HOST || "localhost",
   port: 5432,
-  database: "request_basket",
+  database: process.env.DB_NAME || "request_basket",
 });
 
 const connectMongo = require('./db/mongo').connectMongo;

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const baseURL = '/api';
+const baseURL = import.meta.env.VITE_API_URL || '/api';
 const tokenKey = (name) => `basket_${name}`;
 const saveToken = (name, token) => {
   localStorage.setItem(tokenKey(name), token);
