@@ -54,44 +54,63 @@ function BasketPage() {
 
   if (needsToken) {
     return (
-      <div className="container">
-        <h1>Basket: {basketName}</h1>
-        <p>This basket needs an access token.</p>
-        <form onSubmit={(e) => { e.preventDefault(); load(tokenInput.trim()); }}>
-          <input
-            type="text"
-            value={tokenInput}
-            onChange={(e) => setTokenInput(e.target.value)}
-            placeholder="paste access token"
-          />
-          <button type="submit">Unlock</button>
-        </form>
-        {error && <p style={{ color: "crimson" }}>{error}</p>}
+      <div className="page">
+        <div className="card-surface p-4" style={{ maxWidth: 460 }}>
+          <div className="eyebrow">Locked</div>
+          <h1 className="h4 mb-1">{basketName}</h1>
+          <p className="text-muted mb-3" style={{ fontSize: ".9rem" }}>
+            This basket needs an access token.
+          </p>
+          <form
+            onSubmit={(e) => { e.preventDefault(); load(tokenInput.trim()); }}
+            className="d-flex gap-2 flex-wrap"
+          >
+            <input
+              type="text"
+              className="field"
+              style={{ flex: "1 1 220px" }}
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              placeholder="paste access token"
+            />
+            <button type="submit" className="btn2 btn2-primary">Unlock</button>
+          </form>
+          {error && (
+            <p className="mt-2 mb-0" style={{ color: "var(--danger)", fontSize: ".9rem" }}>
+              {error}
+            </p>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container">
+    <div className="page">
       <RequestPageHeader basketName={basketName} requests={requests} />
 
-      <div className="col-md-10">
-        {requests.map((request) => {
+      {requests.length === 0 ? (
+        <div className="card-surface empty">
+          No requests yet. Send one to the endpoint above.
+        </div>
+      ) : (
+        requests.map((request, i) => {
           return (
-            <div className="row mb-5" key={request.id}>
+            <div
+              className="req-card card-surface p-3"
+              key={request.id}
+              style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
+            >
               <RequestMethodDate request={request} />
 
-              <div className="col-md-10">
-                <div className="accordion" id="accordionExample">
-                  <RequestPath request={request} />
-                  <RequestHeader request={request} />
-                  <RequestBody request={request} />
-                </div>
+              <div className="accordion mt-2" id="accordionExample">
+                <RequestHeader request={request} />
+                <RequestBody request={request} />
               </div>
             </div>
           );
-        })}
-      </div>
+        })
+      )}
     </div>
   );
 };

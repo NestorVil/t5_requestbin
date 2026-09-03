@@ -42,7 +42,7 @@ function HomePage() {
   }, []);
 
   return (
-    <div className="container">
+    <div className="page">
       <BasketInput basketName={basketName} setBasketName={setBasketName} />
       <BasketList baskets={baskets} onDelete={handleDelete} />
     </div>
