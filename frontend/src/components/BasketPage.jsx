@@ -6,6 +6,7 @@ import RequestMethodDate from "./RequestMethodDate";
 import RequestPageHeader from "./RequestPageHeader";
 import RequestHeader from "./RequestHeader";
 import RequestBody from "./RequestBody";
+import RequestPath from "./RequestPath";
 
 const socket = io("http://localhost:3000");
 
@@ -52,6 +53,7 @@ function BasketPage() {
 
               <div className="col-md-10">
                 <div className="accordion" id="accordionExample">
+                  <RequestPath request={request} />
                   <RequestHeader request={request} />
                   <RequestBody request={request} />
                 </div>

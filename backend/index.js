@@ -37,6 +37,7 @@ app.use(cors());
 
 const requestHandler = async(req, res) => {
   const { name } = req.params;
+  const path = req.path;
 
   const basket = await getBasket(name);
 
@@ -54,14 +55,15 @@ const requestHandler = async(req, res) => {
   }
 
   const result = await pool.query(
-    `INSERT INTO http_requests (basket_id, method, headers, body)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO http_requests (basket_id, method, headers, body, path)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
     [
       basket.id,
       req.method,
       JSON.stringify(req.headers),
       JSON.stringify(parsedBody),
+      path,
     ]
   );
 
