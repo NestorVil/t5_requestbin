@@ -6,6 +6,7 @@ import RequestMethodDate from "./RequestMethodDate";
 import RequestPageHeader from "./RequestPageHeader";
 import RequestHeader from "./RequestHeader";
 import RequestBody from "./RequestBody";
+import RequestPath from "./RequestPath";
 
 const socket = io("http://localhost:3000");
 const newestFirst = (a, b) => new Date(b.received_at) - new Date(a.received_at)
@@ -17,6 +18,7 @@ function BasketPage() {
   const [needsToken, setNeedsToken] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
   const [error, setError] = useState("");
+
   const load = useCallback(async (tokenOverride) => {
     const res = await services.getBasketRequests(basketName, tokenOverride);
     if (res.ok) {
@@ -33,8 +35,7 @@ function BasketPage() {
 
   useEffect(() => {
     load(); // was getRequests()
-
-
+    console.log('test');
     socket.on("webhook-update", (event) => {
       if (event?.basketName === basketName) load();
     });

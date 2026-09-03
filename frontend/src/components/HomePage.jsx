@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { io } from "socket.io-client";
-import { useNavigate } from "react-router-dom";
 import services from '../communications/communications';
 import BasketInput from "./BasketInput";
 import BasketList from "./BasketList";
@@ -29,15 +27,17 @@ function HomePage() {
 
     getBasketName();
 
-    socket.on("cron-delete", (deletedBaskets) => {
+    const handleCronDelete = (deletedBaskets) => {
       const namesToRemove = deletedBaskets.map((basket) => basket.name);
       if (namesToRemove.length > 0) {
         window.location.href = "/web";
       }
-    });
+    };
+
+    socket.on("cron-delete", handleCronDelete);
 
     return () => {
-      socket.off("cron-delete");
+      socket.off("cron-delete", handleCronDelete);
     };
   }, []);
 

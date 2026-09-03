@@ -16,7 +16,8 @@ CREATE TABLE http_requests (
   basket_id INT REFERENCES baskets(id) ON DELETE CASCADE, 
   method VARCHAR(10),
   headers JSONB,
-  body JSONB, 
+  body JSONB,
+  path TEXT,
   received_at TIMESTAMPTZ DEFAULT NOW()
 );
 
