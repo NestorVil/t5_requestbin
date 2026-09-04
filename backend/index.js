@@ -2,6 +2,7 @@ const express = require("express");
 const cron = require("node-cron");
 const cors = require("cors");
 const http = require("http");
+const path = require("path");
 const { generateBasketName } = require("./utils");
 const { Server } = require("socket.io");
 const { Socket } = require("engine.io");
@@ -207,6 +208,14 @@ app.delete("/api/baskets/:name", requireBasketToken, async (req, res) => {
   await pool.query("DELETE FROM baskets WHERE id = $1", [req.basket.id]);
   res.status(204).end()
 })
+
+// Serve the built frontend
+const frontendDist = path.join(__dirname, "../frontend/dist");
+app.use(express.static(frontendDist));
+
+app.get("/*splat", (req, res) => {
+  res.sendFile(path.join(frontendDist, "index.html"));
+});
 
 deleteExpiredBasketsJob();
 

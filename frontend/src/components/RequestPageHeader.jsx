@@ -1,5 +1,5 @@
 const RequestPageHeader = ({ basketName, requests }) => {
-  const webhookUrl = `https://t5-requestbin-1.onrender.com/basket/${basketName}`;
+  const webhookUrl = `https://t5-requestbin.onrender.com/basket/${basketName}`;
 
   const copyToClipboard = async () => {
     await navigator.clipboard.writeText(webhookUrl);
