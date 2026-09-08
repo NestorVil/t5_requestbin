@@ -4,7 +4,7 @@ import services from '../communications/communications';
 import BasketInput from "./BasketInput";
 import BasketList from "./BasketList";
 
-const socket = io("http://localhost:3000");
+const socket = io();
 
 function HomePage() {
   const [basketName, setBasketName] = useState("");

@@ -8,7 +8,7 @@ import RequestHeader from "./RequestHeader";
 import RequestBody from "./RequestBody";
 import RequestPath from "./RequestPath";
 
-const socket = io("http://localhost:3000");
+const socket = io();
 const newestFirst = (a, b) => new Date(b.received_at) - new Date(a.received_at)
 
 function BasketPage() {

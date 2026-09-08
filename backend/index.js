@@ -20,11 +20,11 @@ const PORT = 3000;
 // Move this later if needed
 const Pool = require("pg").Pool;
 const pool = new Pool({
-  user: "postgres",
+  user: process.env.POSTGRES_USER || "postgres",
   password: process.env.POSTGRES_PASSWORD,
-  host: "localhost",
-  port: 5432,
-  database: "request_basket",
+  host: process.env.POSTGRES_HOST || "localhost",
+  port: process.env.POSTGRES_PORT || 5432,
+  database: process.env.POSTGRES_DB || "request_basket",
 });
 
 const connectMongo = require('./db/mongo').connectMongo;
@@ -87,7 +87,7 @@ app.use(express.json());
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: process.env.CORS_ORIGIN || true,
   },
 });
 

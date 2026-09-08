@@ -1,0 +1,18 @@
+[Unit]
+Description=Request Bin backend (Node/Express + Socket.io)
+After=network.target postgresql.service mongod.service
+Wants=postgresql.service mongod.service
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/t5_requestbin/backend
+EnvironmentFile=/etc/requestbin.env
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

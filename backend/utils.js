@@ -1,4 +1,4 @@
-export function generateBasketName() {
+function generateBasketName() {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   let result = "";
 
@@ -8,4 +8,8 @@ export function generateBasketName() {
   }
 
   return result;
+}
+
+module.exports = {
+  generateBasketName
 }
