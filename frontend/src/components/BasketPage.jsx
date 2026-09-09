@@ -39,8 +39,8 @@ function BasketPage() {
   }, [basketName]);
 
   useEffect(() => {
+    // eslint-disable-next-line
     load(); // was getRequests()
-    console.log('test');
     socket.on("webhook-update", (event) => {
       if (event?.basketName === basketName) load();
     });

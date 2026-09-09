@@ -46,7 +46,6 @@ const deleteBasket = async (basketName) => {
   return {ok: true};
 }
 
-
 const getBasketRequests = async (basketName, tokenOverride) => {
   const token = tokenOverride || getToken(basketName);
   const headers = token ? { Authorization: `Bearer ${token}`} : {};
