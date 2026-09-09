@@ -9,10 +9,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1129.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "node-cron": "^4.6.0",
     "mongodb": "^7.6.0",
+    "node-cron": "^4.6.0",
     "pg": "^8.23.0",
     "socket.io": "^4.8.3"
   }
