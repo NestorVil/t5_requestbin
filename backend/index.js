@@ -59,6 +59,42 @@ async function initPool() {
   });
 }
 
+// Load non-secret config from SSM Parameter Store. If CONFIG_PARAM_PATH is set,
+// every parameter under that path is copied into process.env by its short name
+// (e.g. /requestbin/POSTGRES_HOST -> process.env.POSTGRES_HOST), so the rest of
+// the code keeps reading process.env as before.
+async function loadParams() {
+  const path = process.env.CONFIG_PARAM_PATH;
+  if (!path) return;
+
+  const {
+    SSMClient,
+    GetParametersByPathCommand,
+  } = require("@aws-sdk/client-ssm");
+  const ssm = new SSMClient({ region: process.env.AWS_REGION || "us-east-1" });
+
+  let nextToken;
+  let count = 0;
+  do {
+    const resp = await ssm.send(
+      new GetParametersByPathCommand({
+        Path: path,
+        Recursive: true,
+        WithDecryption: true,
+        NextToken: nextToken,
+      })
+    );
+    for (const p of resp.Parameters || []) {
+      const key = p.Name.slice(p.Name.lastIndexOf("/") + 1);
+      process.env[key] = p.Value;
+      count++;
+    }
+    nextToken = resp.NextToken;
+  } while (nextToken);
+
+  console.log(`Loaded ${count} parameter(s) from SSM Parameter Store (${path})`);
+}
+
 const connectMongo = require('./db/mongo').connectMongo;
 const recordToBasket = require('./db/mongo').recordToBasket;
 let mongoDb;
@@ -241,6 +277,7 @@ app.delete("/api/baskets/:name", requireBasketToken, async (req, res) => {
 })
 
 async function main() {
+  await loadParams();
   await initPool();
   deleteExpiredBasketsJob();
   server.listen(PORT, () => {
