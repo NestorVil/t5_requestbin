@@ -17,19 +17,47 @@ const app = express();
 const server = http.createServer(app);
 const PORT = 3000;
 
-// Move this later if needed
 const Pool = require("pg").Pool;
-const pool = new Pool({
-  user: process.env.POSTGRES_USER || "postgres",
-  password: process.env.POSTGRES_PASSWORD,
-  host: process.env.POSTGRES_HOST || "localhost",
-  port: process.env.POSTGRES_PORT || 5432,
-  database: process.env.POSTGRES_DB || "request_basket",
-  // RDS enforces TLS (rds.force_ssl). Local/dev Postgres doesn't, so this is
-  // opt-in via env. rejectUnauthorized:false = encrypt without verifying the
-  // server cert against a CA bundle.
-  ssl: process.env.POSTGRES_SSL === "true" ? { rejectUnauthorized: false } : false,
-});
+let pool; // assigned by initPool() before the server starts listening
+
+// Build the connection pool. If DB_SECRET_ID is set, the username/password come
+// from AWS Secrets Manager (fetched with the AWS SDK using the instance role);
+// otherwise they come from POSTGRES_USER / POSTGRES_PASSWORD env vars (local dev).
+async function initPool() {
+  let user = process.env.POSTGRES_USER || "postgres";
+  let password = process.env.POSTGRES_PASSWORD;
+
+  if (process.env.DB_SECRET_ID) {
+    const {
+      SecretsManagerClient,
+      GetSecretValueCommand,
+    } = require("@aws-sdk/client-secrets-manager");
+    const sm = new SecretsManagerClient({
+      region: process.env.AWS_REGION || "us-east-1",
+    });
+    const resp = await sm.send(
+      new GetSecretValueCommand({ SecretId: process.env.DB_SECRET_ID })
+    );
+    const secret = JSON.parse(resp.SecretString);
+    user = secret.username;
+    password = secret.password;
+    console.log(
+      `Loaded DB credentials from Secrets Manager (${process.env.DB_SECRET_ID})`
+    );
+  }
+
+  pool = new Pool({
+    user,
+    password,
+    host: process.env.POSTGRES_HOST || "localhost",
+    port: process.env.POSTGRES_PORT || 5432,
+    database: process.env.POSTGRES_DB || "request_basket",
+    // RDS enforces TLS (rds.force_ssl). Local/dev Postgres doesn't, so this is
+    // opt-in via env. rejectUnauthorized:false = encrypt without verifying the
+    // server cert against a CA bundle.
+    ssl: process.env.POSTGRES_SSL === "true" ? { rejectUnauthorized: false } : false,
+  });
+}
 
 const connectMongo = require('./db/mongo').connectMongo;
 const recordToBasket = require('./db/mongo').recordToBasket;
@@ -212,8 +240,15 @@ app.delete("/api/baskets/:name", requireBasketToken, async (req, res) => {
   res.status(204).end()
 })
 
-deleteExpiredBasketsJob();
+async function main() {
+  await initPool();
+  deleteExpiredBasketsJob();
+  server.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
+}
 
-server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+main().catch((err) => {
+  console.error("Startup failed:", err);
+  process.exit(1);
 });
