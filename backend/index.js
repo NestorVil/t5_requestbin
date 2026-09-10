@@ -25,6 +25,10 @@ const pool = new Pool({
   host: process.env.POSTGRES_HOST || "localhost",
   port: process.env.POSTGRES_PORT || 5432,
   database: process.env.POSTGRES_DB || "request_basket",
+  // RDS enforces TLS (rds.force_ssl). Local/dev Postgres doesn't, so this is
+  // opt-in via env. rejectUnauthorized:false = encrypt without verifying the
+  // server cert against a CA bundle.
+  ssl: process.env.POSTGRES_SSL === "true" ? { rejectUnauthorized: false } : false,
 });
 
 const connectMongo = require('./db/mongo').connectMongo;
