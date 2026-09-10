@@ -98,13 +98,16 @@ async function loadParams() {
 const connectMongo = require('./db/mongo').connectMongo;
 const recordToBasket = require('./db/mongo').recordToBasket;
 let mongoDb;
-connectMongo()
-  .then((db) => {
-    mongoDb = db;
-  })
-  .catch((error) => {
-    console.log(error);  // How do we want to handle failure to connect to Mongo? Fuggedaboudit!
-  })
+
+// Called from main() AFTER loadParams(), so MONGO_URI / MONGO_DB_NAME from
+// Parameter Store are in place. A Mongo failure is logged but not fatal.
+async function initMongo() {
+  try {
+    mongoDb = await connectMongo();
+  } catch (error) {
+    console.log(error);
+  }
+}
 
 app.use(cors());
 
@@ -279,6 +282,7 @@ app.delete("/api/baskets/:name", requireBasketToken, async (req, res) => {
 async function main() {
   await loadParams();
   await initPool();
+  await initMongo();
   deleteExpiredBasketsJob();
   server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
