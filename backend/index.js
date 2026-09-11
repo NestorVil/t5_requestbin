@@ -111,6 +111,14 @@ async function initMongo() {
 
 app.use(cors());
 
+// Health check for the ALB target group. Deliberately shallow: it only
+// confirms this Node process is up and serving HTTP. It does NOT touch the
+// database, so a transient DB problem can't make the load balancer mark every
+// instance unhealthy and take the whole app down.
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 const requestHandler = async(req, res) => {
   const { name } = req.params;
   const path = req.path;
