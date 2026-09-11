@@ -182,6 +182,28 @@ io.on("connection", (socket) => {
   });
 });
 
+// Cross-instance broadcast. With 2+ app instances behind the ALB, io.emit()
+// only reaches clients connected to THIS process. The Redis/Valkey adapter
+// makes io.emit() publish to a shared channel that every instance subscribes
+// to, so an event emitted on one instance reaches every instance's clients.
+// No-op (default single-process behavior) when VALKEY_URL isn't set.
+async function initSocketAdapter() {
+  const url = process.env.VALKEY_URL;
+  if (!url) return;
+
+  const { createClient } = require("redis");
+  const { createAdapter } = require("@socket.io/redis-adapter");
+
+  const pubClient = createClient({ url });
+  const subClient = pubClient.duplicate();
+  pubClient.on("error", (err) => console.error("Valkey pubClient error:", err));
+  subClient.on("error", (err) => console.error("Valkey subClient error:", err));
+
+  await Promise.all([pubClient.connect(), subClient.connect()]);
+  io.adapter(createAdapter(pubClient, subClient));
+  console.log(`Socket.IO adapter connected to Valkey (${url})`);
+}
+
 function deleteExpiredBasketsJob() {
   cron.schedule("*/20 * * * * *", async () => {
     try {
@@ -295,6 +317,7 @@ async function main() {
   await loadParams();
   await initPool();
   await initMongo();
+  await initSocketAdapter();
   deleteExpiredBasketsJob();
   server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
