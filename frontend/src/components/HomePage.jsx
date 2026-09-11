@@ -4,7 +4,10 @@ import services from '../communications/communications';
 import BasketInput from "./BasketInput";
 import BasketList from "./BasketList";
 
-const socket = io();
+// websocket-only: skips the HTTP long-polling handshake, so there's no
+// window where separate requests could land on different app instances
+// behind the ALB before the connection is established.
+const socket = io({ transports: ["websocket"] });
 
 function HomePage() {
   const [basketName, setBasketName] = useState("");

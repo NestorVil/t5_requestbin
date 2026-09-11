@@ -168,6 +168,10 @@ const io = new Server(server, {
   cors: {
     origin: process.env.CORS_ORIGIN || true,
   },
+  // Match the client: don't even offer HTTP long-polling. With 2 app
+  // instances behind an ALB, a polling handshake could split across
+  // instances before upgrading; a direct websocket avoids that entirely.
+  transports: ["websocket"],
 });
 
 io.on("connection", (socket) => {

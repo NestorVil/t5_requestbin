@@ -8,7 +8,10 @@ import RequestHeader from "./RequestHeader";
 import RequestBody from "./RequestBody";
 import RequestPath from "./RequestPath";
 
-const socket = io();
+// websocket-only: skips the HTTP long-polling handshake, so there's no
+// window where separate requests could land on different app instances
+// behind the ALB before the connection is established.
+const socket = io({ transports: ["websocket"] });
 const newestFirst = (a, b) => new Date(b.received_at) - new Date(a.received_at)
 
 function BasketPage() {
